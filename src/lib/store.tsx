@@ -16,6 +16,7 @@ export type Tarea = {
   nota?: string;
   estado: Estado;
   duda?: string;
+  respuesta?: string;
   creada: number;
 };
 
@@ -61,6 +62,7 @@ type Ctx = {
   enviar: (nuevas: Omit<Tarea, 'estado' | 'creada'>[]) => void;
   cambiarEstado: (id: string, estado: Estado) => void;
   preguntarDuda: (id: string, duda: string) => void;
+  responder: (id: string, respuesta: string) => void;
   carga: Record<string, number>;
   reiniciar: () => void;
 };
@@ -89,7 +91,8 @@ export function VeltProvider({ children }: { children: ReactNode }) {
       carga,
       enviar: (nuevas) => setTareas((ts) => [...nuevas.map((t) => ({ ...t, estado: 'pendiente' as const, creada: Date.now() })), ...ts]),
       cambiarEstado: (id, estado) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, estado } : t))),
-      preguntarDuda: (id, duda) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, duda } : t))),
+      preguntarDuda: (id, duda) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, duda, respuesta: undefined } : t))),
+      responder: (id, respuesta) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, respuesta } : t))),
       reiniciar: () => setTareas(EJEMPLO),
     };
   }, [tareas, usuarioId]);

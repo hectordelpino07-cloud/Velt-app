@@ -15,6 +15,7 @@ export type TareaPropuesta = {
   dia: string | null; // 'Lun', 'Mar'… u 'Hoy' / 'Mañana'
   hora: string | null; // '17:00'
   nota?: string;
+  fuente: string; // trozo de la idea del que sale, para resaltarlo
 };
 
 export type Opcion = { valor: string; etiqueta: string; detalle?: string };
@@ -32,6 +33,7 @@ export type Analisis = {
   preguntas: Pregunta[];
   excluidos: string[]; // ids de personas que la idea pide no cargar
   porque: string; // frases de contexto, se envían como «Por qué»
+  avisos: string[]; // frases solo para dirección («Raúl ya va justo»)
 };
 
 // Quita tildes y pasa a minúsculas sin cambiar la longitud del texto,
@@ -190,6 +192,7 @@ export function analizarIdea(texto: string, cargaActual: Record<string, number> 
       tareas.push({
         id: nuevoId('t'),
         titulo,
+        fuente: frag,
         responsableId: s.persona && s.persona.id !== DIRECTOR.id ? s.persona.id : null,
         dia: buscarDia(frag),
         hora: buscarHora(frag),
@@ -237,8 +240,9 @@ export function analizarIdea(texto: string, cargaActual: Record<string, number> 
 
   // El «por qué» lo lee el equipo: nunca debe incluir comentarios sobre
   // compañeros («Raúl ya va justo»), que son solo para dirección.
-  const porque = contexto.filter((f) => buscarExcluidos(f).length === 0).join(' ');
-  return { tareas, preguntas, excluidos, porque };
+  const avisos = contexto.filter((f) => buscarExcluidos(f).length > 0);
+  const porque = contexto.filter((f) => !avisos.includes(f)).join(' ');
+  return { tareas, preguntas, excluidos, porque, avisos };
 }
 
 // Propone a quién asignar: primero quien encaja por su puesto, luego quien
