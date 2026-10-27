@@ -1,27 +1,27 @@
-# VELT Escolar · app
+﻿# VELT Escolar Â· app
 
-Primera versión (MVP) de VELT Escolar: la dirección escribe una idea y VELT la convierte en tareas con responsable y fecha; cada persona del equipo la recibe y la confirma.
+Primera versiÃ³n (MVP) de VELT Escolar: la direcciÃ³n escribe una idea y VELT la convierte en tareas con responsable y fecha; cada persona del equipo la recibe y la confirma.
 
-Un solo código para **web (Chrome)**, **Android** e **iOS**, hecho con Expo (React Native).
+Un solo cÃ³digo para **web (Chrome)**, **Android** e **iOS**, hecho con Expo (React Native).
 
 ## Arrancar
 
 ```bash
-npm install
-npx expo start --web
+npm.cmd install
+npx.cmd expo start --web
 ```
 
-Se abre en http://localhost:8081. Para verlo en el móvil: `npx expo start`, instala **Expo Go** en el móvil y escanea el QR (móvil y PC en la misma wifi).
+O haz doble clic en `abrir_velt.cmd`. Se abre en http://localhost:8081. (En PowerShell usa `npx.cmd`/`npm.cmd`: tu PC tiene bloqueados los scripts `.ps1`.) Para verlo en el mÃ³vil: `npx expo start`, instala **Expo Go** en el mÃ³vil y escanea el QR (mÃ³vil y PC en la misma wifi).
 
-## Dónde está cada cosa
+## DÃ³nde estÃ¡ cada cosa
 
-- `src/app/` pantallas: `index.tsx` (nueva idea), `seguimiento.tsx` (dirección), `mis-tareas.tsx` (personal).
+- `src/app/` pantallas: `index.tsx` (nueva idea), `seguimiento.tsx` (direcciÃ³n), `mis-tareas.tsx` (personal).
 - `src/lib/parser.ts` convierte el texto en tareas (reglas, sin IA, todo en el dispositivo).
 - `src/lib/store.tsx` estado de la app (de momento se guarda en el navegador).
-- `src/lib/theme.ts` colores y tipografías de la marca.
+- `src/lib/theme.ts` colores y tipografÃ­as de la marca.
 - `src/data/equipo.ts` equipo de ejemplo (datos inventados).
 
-## Limitaciones de esta versión
+## Limitaciones de esta versiÃ³n
 
-- No hay servidor ni inicio de sesión: «Ver como» simula cada perfil y los datos solo viven en este navegador.
-- El análisis de la idea es por reglas: entiende «Necesito que X haga Y», «que alguien…», «hay que…», listas con guiones y «Nombre: tarea».
+- No hay servidor ni inicio de sesiÃ³n: Â«Ver comoÂ» simula cada perfil y los datos solo viven en este navegador.
+- El anÃ¡lisis de la idea es por reglas: entiende Â«Necesito que X haga YÂ», Â«que alguienâ€¦Â», Â«hay queâ€¦Â», listas con guiones y Â«Nombre: tareaÂ».
