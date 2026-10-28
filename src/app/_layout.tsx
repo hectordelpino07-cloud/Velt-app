@@ -18,8 +18,9 @@ import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 const NAV = [
   { ruta: '/', texto: 'Hoy', corto: 'Hoy', num: '01' },
   { ruta: '/idea', texto: 'Nueva idea', corto: 'Idea', num: '02' },
-  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo', num: '03' },
-  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas', num: '04' },
+  { ruta: '/centro', texto: 'Mapa del centro', corto: 'Centro', num: '03' },
+  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo', num: '04' },
+  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas', num: '05' },
 ] as const;
 
 const ALTO_NAV = 44;
@@ -138,7 +139,7 @@ function Marco() {
             return (
               <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta)} accessibilityRole="link" style={s.pestana}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[s.navTexto, { fontSize: 11 }, on && { color: color.blanco }]}>{n.corto}</Text>
+                  <Text style={[s.navTexto, { fontSize: 10, letterSpacing: 0.6 }, on && { color: color.blanco }]}>{n.corto}</Text>
                   {num ? (
                     <View style={[s.insignia, { marginLeft: 0 }]}>
                       <Text style={s.insigniaTexto}>{num}</Text>

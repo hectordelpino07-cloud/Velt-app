@@ -95,10 +95,10 @@ export default function Hoy() {
           i={1}
           bg={color.lima}
           texto={color.tinta}
-          etiqueta={dudas ? `// ${dudas} sin responder` : '// Al día'}
-          titulo={dudas ? 'Responde\ndudas' : 'Mira el\nequipo'}
-          sub={dudas ? 'Tu equipo te espera.' : 'Quién tiene qué entre manos.'}
-          onPress={() => router.navigate('/seguimiento')}
+          etiqueta={dudas ? `// ${dudas} sin responder` : '// 02 · En movimiento'}
+          titulo={dudas ? 'Responde\ndudas' : 'Mapa del\ncentro'}
+          sub={dudas ? 'Tu equipo te espera.' : 'Qué aula está libre y dónde está cada uno.'}
+          onPress={() => router.navigate(dudas ? '/seguimiento' : '/centro')}
         />
       </View>
 
