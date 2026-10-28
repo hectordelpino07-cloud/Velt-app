@@ -61,7 +61,6 @@ function Marco() {
   const ruta = usePathname();
   const { tareas } = useVelt();
   const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha').length;
-  const pendientes = tareas.filter((t) => t.estado === 'pendiente').length;
   const { materiales, espacios } = useCentro();
   const averiados = materiales.filter((m) => m.estado === 'averiado').length;
   const activo = NAV.findIndex((n) => n.ruta === ruta); // -1 en «Configurar centro»
@@ -75,7 +74,7 @@ function Marco() {
   const indicador = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
 
   const insignia = (r: string) =>
-    r === '/seguimiento' && dudas ? dudas : r === '/mis-tareas' && pendientes ? pendientes : r === '/material' && averiados ? averiados : 0;
+    r === '/seguimiento' && dudas ? dudas : r === '/material' && averiados ? averiados : 0;
 
   // Cada pantalla entra con un pequeño deslizamiento al cambiar de sección
   const contenido = (
@@ -89,7 +88,7 @@ function Marco() {
       <View style={s.escritorio}>
         <View style={s.lateral}>
           <Logo tam={34} />
-          <Mono style={{ color: color.lima, marginTop: 30, marginBottom: 14 }}>// VELT Escolar</Mono>
+          <Mono style={{ color: color.lima, marginTop: 30, marginBottom: 14 }}>{'// '}VELT Escolar</Mono>
           <View style={{ gap: HUECO_NAV }}>
             <Animated.View style={[s.indicador, cortado(9), indicador, activo < 0 && { opacity: 0 }]} />
             {NAV.map((n, i) => {
@@ -114,7 +113,7 @@ function Marco() {
           </View>
           <View style={{ flex: 1 }} />
           <View style={s.centro}>
-            <Mono style={{ color: color.grisClaro, fontSize: 10 }}>// Centro</Mono>
+            <Mono style={{ color: color.grisClaro, fontSize: 10 }}>{'// '}Centro</Mono>
             <Text style={s.centroNombre}>{CENTRO}</Text>
             <Text style={s.centroDato}>
               {espacios.length} espacios · {materiales.length} materiales
@@ -147,7 +146,7 @@ function Marco() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: color.tinta }}>
         <View style={s.barra}>
           <Logo tam={26} />
-          <Mono style={{ color: color.lima }}>// Escolar</Mono>
+          <Mono style={{ color: color.lima }}>{'// '}Escolar</Mono>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pestanas}>
           {[...NAV, { ruta: '/configurar', texto: 'Configurar', corto: 'Ajustes', num: '07' }].map((n, i) => {

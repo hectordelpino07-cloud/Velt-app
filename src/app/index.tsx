@@ -8,11 +8,10 @@ import { Avatar, Barra, Contador, cortado, Mono } from '../components/ui';
 import { esClase } from '../data/centro';
 import { activos, CENTRO, DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
+import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { entra, entraLado } from '../lib/motion';
 import { useVelt } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
-
-const ORDEN = ['Hoy', 'Mañana', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 function saludo() {
   const h = new Date().getHours();
@@ -40,7 +39,7 @@ export default function Hoy() {
   const equipo = activos().filter((p) => p.id !== DIRECTOR.id);
   const libres = equipo.filter((p) => !carga[p.id]).length;
   const proximas = [...activas]
-    .sort((a, b) => ORDEN.indexOf(a.dia ?? 'Dom') - ORDEN.indexOf(b.dia ?? 'Dom') || (a.hora ?? '99').localeCompare(b.hora ?? '99'))
+    .sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)))
     .slice(0, 6);
   const fecha = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -48,7 +47,7 @@ export default function Hoy() {
     <View>
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 14 }}>
-          // {fecha} · {CENTRO}
+          {'// '}{fecha} · {CENTRO}
         </Mono>
       </Animated.View>
       <TitularRevela texto={`${saludo()},\n${DIRECTOR.nombre}.`} tam={ancho ? 76 : 42} />
@@ -60,10 +59,14 @@ export default function Hoy() {
         </Text>
         <View style={[s.parteFila, !ancho && { flexDirection: 'column', gap: 26 }]}>
           <View style={{ flex: ancho ? 1.3 : undefined }}>
-            <Mono style={{ color: color.lima }}>// Parte del día</Mono>
+            <Mono style={{ color: color.lima }}>{'// '}Parte del día</Mono>
             <Contador valor={sinConfirmar} style={[s.parteN, { fontSize: ancho ? 150 : 104, lineHeight: ancho ? 150 : 104 }]} />
             <Text style={s.parteTexto}>
-              {sinConfirmar === 1 ? 'tarea espera' : 'tareas esperan'} a que alguien la confirme.
+              {sinConfirmar === 0
+                ? 'Todo lo enviado está confirmado.'
+                : sinConfirmar === 1
+                  ? 'tarea espera a que su responsable la confirme.'
+                  : 'tareas esperan a que sus responsables las confirmen.'}
             </Text>
           </View>
           <View style={[s.parteDatos, !ancho && { borderLeftWidth: 0, paddingLeft: 0 }]}>
@@ -84,21 +87,21 @@ export default function Hoy() {
             ]}
           />
           <Text style={s.parteBarra}>
-            {Math.round((hechas / (tareas.length || 1)) * 100)}% del trabajo de la semana hecho
+            {hechas} de {tareas.length} {tareas.length === 1 ? 'tarea hecha' : 'tareas hechas'}
           </Text>
         </View>
       </Animated.View>
 
-      {(ausentes.length > 0 || averiados > 0) && (
+      {(sinCubrir > 0 || averiados > 0) && (
         <Animated.View entering={entra(0, 250)}>
-          <Pressable onPress={() => router.navigate(ausentes.length ? '/centro' : '/material')} accessibilityRole="link">
+          <Pressable onPress={() => router.navigate(sinCubrir ? '/centro' : '/material')} accessibilityRole="link">
             {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
               <View style={[s.aviso, cortado(14), hovered && { backgroundColor: '#B82424' }]}>
                 <Text style={s.avisoTexto}>
-                  {ausentes.length
-                    ? `${ausentes.map((id) => persona(id)?.nombre).join(' y ')} ${ausentes.length === 1 ? 'falta' : 'faltan'} hoy · ${sinCubrir} ${sinCubrir === 1 ? 'clase' : 'clases'} sin cubrir`
+                  {sinCubrir
+                    ? `${unir(ausentes.map((id) => persona(id)?.nombre ?? '—'))} ${ausentes.length === 1 ? 'falta' : 'faltan'} hoy · ${sinCubrir} ${sinCubrir === 1 ? 'clase' : 'clases'} sin cubrir`
                     : ''}
-                  {ausentes.length && averiados ? '   ·   ' : ''}
+                  {sinCubrir && averiados ? '   ·   ' : ''}
                   {averiados ? `${averiados} ${averiados === 1 ? 'equipo averiado' : 'equipos averiados'}` : ''}
                 </Text>
                 <Text style={s.avisoFlecha}>Resolver →</Text>
@@ -144,8 +147,8 @@ export default function Hoy() {
             return (
               <Animated.View key={t.id} entering={entraLado(i, 400)} style={s.linea}>
                 <View style={s.lineaHora}>
-                  <Text style={s.hora}>{t.hora ?? '—'}</Text>
-                  <Text style={s.dia}>{t.dia ?? ''}</Text>
+                  <Text style={[s.hora, atrasada(t) && { color: color.rojo }]}>{t.hora ?? '—'}</Text>
+                  <Text style={[s.dia, atrasada(t) && { color: color.rojo }]}>{diaDeTarea(t) ?? ''}</Text>
                 </View>
                 <View style={s.eje}>
                   <View style={[s.punto, t.estado === 'confirmada' ? { backgroundColor: color.lima } : { borderWidth: 2, borderColor: color.tinta }]} />
@@ -160,6 +163,7 @@ export default function Hoy() {
                       {t.estado === 'confirmada' ? 'Confirmada' : 'Sin confirmar'}
                     </Text>
                     {t.duda && !t.respuesta ? <Text style={[s.estado, { backgroundColor: color.tinta, color: color.lima }]}>Duda</Text> : null}
+                    {atrasada(t) ? <Text style={[s.estado, { backgroundColor: color.rojo, color: color.blanco }]}>Con retraso</Text> : null}
                   </View>
                 </View>
               </Animated.View>
@@ -180,7 +184,7 @@ export default function Hoy() {
                 <Animated.View key={p.id} entering={entra(i, 500)} style={[s.miembro, c >= 4 && { backgroundColor: '#FBE3E3' }, cortado(10)]}>
                   <Avatar id={p.id} tam={34} />
                   <Text style={s.miembroNombre}>{p.nombre}</Text>
-                  <Text style={s.miembroRol}>{p.rol}</Text>
+                  <Text style={s.miembroRol}>{p.materia || p.rol}</Text>
                   <View style={{ flexDirection: 'row', gap: 3, marginTop: 8 }}>
                     {[0, 1, 2, 3].map((k) => (
                       <View key={k} style={[s.pip, k < c && { backgroundColor: c >= 4 ? color.rojo : color.cobalto }]} />
@@ -195,6 +199,8 @@ export default function Hoy() {
     </View>
   );
 }
+
+const unir = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
 
 function DatoParte({ n, l, acento }: { n: number; l: string; acento?: boolean }) {
   return (

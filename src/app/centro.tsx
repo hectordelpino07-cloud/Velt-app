@@ -3,7 +3,7 @@
 // marcar una ausencia y cubrir su clase con quien está de guardia.
 // Todo sale de la configuración del centro (lib/centro.tsx).
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
@@ -49,24 +49,14 @@ export default function Centro() {
   const planta = plantas.some((x) => x.id === plantaElegida) ? plantaElegida : plantas[0]?.id ?? '';
   const [reproduciendo, setReproduciendo] = useState(false);
   const [foco, setFoco] = useState<string | null>(null);
-  const reloj = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // «Reproducir el día»: avanza una franja cada 1,6 s hasta la última
+  const total = FRANJAS.length;
+  // «Reproducir el día»: avanza una franja cada 1,6 s y se para sola en la última
+  const enMarcha = reproduciendo && franja < total - 1;
   useEffect(() => {
-    if (!reproduciendo) return;
-    reloj.current = setInterval(() => {
-      setFranja((f) => {
-        if (f >= FRANJAS.length - 1) {
-          setReproduciendo(false);
-          return f;
-        }
-        return f + 1;
-      });
-    }, 1600);
-    return () => {
-      if (reloj.current) clearInterval(reloj.current);
-    };
-  }, [reproduciendo]);
+    if (!enMarcha) return;
+    const reloj = setInterval(() => setFranja((x) => Math.min(x + 1, total - 1)), 1600);
+    return () => clearInterval(reloj);
+  }, [enMarcha, total]);
 
   // Quién da clase en un espacio y franja (el primero, si hubiera choque)
   const claseEn = (espacioId: string, fr: number) =>
@@ -172,7 +162,6 @@ export default function Centro() {
     cfg.cubrir(franja, espacioId, quien);
     enviar([
       {
-        id: `guardia-${franja}-${espacioId}-${Date.now()}`,
         titulo: `Cubrir ${clase.materia} con ${clase.grupo} (${FRANJAS[franja].nombre})`,
         responsableId: quien,
         dia: 'Hoy',
@@ -202,7 +191,7 @@ export default function Centro() {
     <View>
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 14 }}>
-          // {CENTRO} · {plantas.length} plantas · {espacios.length} espacios
+          {'// '}{CENTRO} · {plantas.length} plantas · {espacios.length} espacios
         </Mono>
       </Animated.View>
       <TitularRevela texto={'Mapa\ndel centro.'} tam={ancho ? 76 : 44} />
@@ -240,14 +229,15 @@ export default function Centro() {
         </View>
         <View style={s.controles}>
           <Boton
-            variante={reproduciendo ? 'tinta' : 'principal'}
+            variante={enMarcha ? 'tinta' : 'principal'}
             pequeno
             onPress={() => {
-              if (!reproduciendo && franja >= FRANJAS.length - 1) setFranja(0);
-              setReproduciendo((r) => !r);
+              if (enMarcha) return setReproduciendo(false);
+              if (franja >= total - 1) setFranja(0);
+              setReproduciendo(true);
             }}
           >
-            {reproduciendo ? '❚❚  Pausa' : '▶  Reproducir el día'}
+            {enMarcha ? '❚❚  Pausa' : '▶  Reproducir el día'}
           </Boton>
           <Mono>
             {f.nombre} · {f.inicio}–{f.fin}
@@ -344,7 +334,7 @@ export default function Centro() {
         <View style={lado ? { flex: 1 } : undefined}>
           <View style={[s.ahora, cortado(22)]}>
             <Mono style={{ color: color.lima }}>
-              // {franja === ahora.franja && ahora.real ? 'Ahora' : f.nombre} · {f.inicio}
+              {'// '}{franja === ahora.franja && ahora.real ? 'Ahora' : f.nombre} · {f.inicio}
             </Mono>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 6 }}>
               <Contador valor={ocupadas} style={s.ahoraN} />
@@ -374,7 +364,7 @@ export default function Centro() {
               </Animated.View>
             )}
 
-            <Text style={s.ahoraSub}>Libres</Text>
+            <Text style={s.ahoraSub}>Aulas libres</Text>
             <Text style={s.ahoraTexto}>{libres.length ? libres.map((e) => e.nombre).join(' · ') : 'Ninguna aula libre en esta franja.'}</Text>
             {libres.length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>

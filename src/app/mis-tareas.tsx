@@ -7,7 +7,8 @@ import { Deslizar, TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
 import { activos, DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
-import { entra, recoloca, vibra } from '../lib/motion';
+import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
+import { entra, recoloca } from '../lib/motion';
 import { Tarea, useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -17,9 +18,12 @@ export default function MisTareas() {
   const ancho = width >= ANCHO_ESCRITORIO;
   const { tareas } = useVelt();
   useCentro(); // se vuelve a pintar si cambia el personal
-  const [yo, setYo] = useState('carmen');
+  const [elegido, setYo] = useState('carmen');
+  // Si la persona elegida se da de baja, se pasa a la primera en activo
+  const personal = activos().filter((x) => x.id !== DIRECTOR.id);
+  const yo = personal.some((x) => x.id === elegido) ? elegido : personal[0]?.id ?? DIRECTOR.id;
   const p = persona(yo)!;
-  const todas = tareas.filter((t) => t.responsableId === yo);
+  const todas = tareas.filter((t) => t.responsableId === yo).sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)));
   const activas = todas.filter((t) => t.estado !== 'hecha');
   const hechas = todas.filter((t) => t.estado === 'hecha').length;
   const confirmadas = todas.filter((t) => t.estado === 'confirmada').length;
@@ -28,9 +32,9 @@ export default function MisTareas() {
   return (
     <View style={{ maxWidth: 760 }}>
       <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>// Ver como · prueba sin inicio de sesión</Mono>
+        <Mono style={{ marginBottom: 12 }}>{'// '}Ver como · prueba sin inicio de sesión</Mono>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
-          {activos().filter((x) => x.id !== DIRECTOR.id).map((x) => {
+          {personal.map((x) => {
             const on = x.id === yo;
             return (
               <Pressable key={x.id} onPress={() => setYo(x.id)} accessibilityRole="button" style={[s.persona, on && s.personaOn, cortado(8)]}>
@@ -44,7 +48,7 @@ export default function MisTareas() {
 
       <Animated.View key={yo} entering={entra(1)}>
         <Mono style={{ marginTop: 30, marginBottom: 12 }}>
-          // {p.rol} · {fecha}
+          {'// '}{p.rol} · {fecha}
         </Mono>
         <View style={{ marginBottom: 22 }}>
           <TitularRevela texto={`Hola,
@@ -54,7 +58,7 @@ ${p.nombre}.`} tam={ancho ? 64 : 44} />
         <View style={[s.dia, cortado(22)]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
             <View>
-              <Mono style={{ color: color.lima }}>// Tu día</Mono>
+              <Mono style={{ color: color.lima }}>{'// '}Tu día</Mono>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
                 <Contador valor={hechas} style={s.diaN} />
                 <Text style={[s.diaN, { color: '#4A5068' }]}>/{todas.length}</Text>
@@ -120,7 +124,7 @@ function TarjetaTarea({ t }: { t: Tarea }) {
     <Panel corte={18} sombra={8} tonoSombra={confirmada ? color.lima : color.cobalto}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <Mono style={{ color: color.lima }}>
-          // {confirmada ? 'Confirmada' : 'Nueva tarea'} · de {DIRECTOR.nombre}
+          {'// '}{confirmada ? 'Confirmada' : 'Nueva tarea'} · de {DIRECTOR.nombre}
         </Mono>
         {confirmada && (
           <Animated.View entering={ZoomIn.springify().damping(12)} style={[s.sello, cortado(6)]}>
@@ -131,7 +135,7 @@ function TarjetaTarea({ t }: { t: Tarea }) {
       <Titular tam={26} style={{ color: color.crema, marginBottom: 14 }}>
         {t.titulo}
       </Titular>
-      <Etiqueta dia={t.dia} hora={t.hora} acento fondo={color.tinta} />
+      <Etiqueta dia={diaDeTarea(t)} hora={t.hora} acento alerta={atrasada(t)} fondo={color.tinta} />
       {t.porque ? <Text style={s.porque}>Por qué: {t.porque}</Text> : null}
       {t.nota ? <Text style={s.porque}>{t.nota}</Text> : null}
 

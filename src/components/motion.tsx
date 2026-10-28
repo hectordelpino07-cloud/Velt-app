@@ -1,6 +1,6 @@
 // Piezas con movimiento propio: titulares que suben desde una máscara,
 // la entrada de la app con el logo y el control de deslizar para confirmar.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityActionEvent, LayoutChangeEvent, PanResponder, StyleProp, StyleSheet, Text, TextStyle, View } from 'react-native';
 import Animated, {
   interpolate,
@@ -40,7 +40,7 @@ export function TitularRevela({
 function Linea({ texto, tam, retraso, style }: { texto: string; tam: number; retraso: number; style?: StyleProp<TextStyle> }) {
   const p = useSharedValue(0);
   useEffect(() => {
-    p.value = withDelay(retraso, withTiming(1, { duration: 820, easing: curva }));
+    p.set(withDelay(retraso, withTiming(1, { duration: 820, easing: curva })));
   }, [p, retraso]);
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: (1 - p.value) * tam * 1.1 }] }));
   return (
@@ -70,12 +70,14 @@ export function Intro() {
   useEffect(() => {
     if (!visible) return;
     introVista = true;
-    logo.value = withTiming(1, { duration: 700, easing: curva });
-    cortina.value = withDelay(
+    logo.set(withTiming(1, { duration: 700, easing: curva }));
+    cortina.set(
+      withDelay(
       1500,
       withTiming(1, { duration: 750, easing: curva }, (fin) => {
-        if (fin) runOnJS(setVisible)(false);
-      }),
+          if (fin) runOnJS(setVisible)(false);
+        }),
+      ),
     );
   }, [visible, logo, cortina]);
 
@@ -98,7 +100,7 @@ export function Intro() {
           <View style={{ marginTop: 26 }}>
             <TitularRevela texto="VELT" tam={56} retraso={250} style={{ color: color.crema, letterSpacing: -1 }} />
           </View>
-          <Text style={s.introSub}>// Escolar</Text>
+          <Text style={s.introSub}>{'// '}Escolar</Text>
         </Animated.View>
       </Animated.View>
     </View>
@@ -123,36 +125,42 @@ export function Deslizar({
   const [hecho, setHecho] = useState(false);
   const x = useSharedValue(0);
   const max = Math.max(0, ancho - ASA - 4);
+  // El gesto se crea una vez; lee el ancho y la acción actuales a través de refs
   const maxRef = useRef(max);
-  maxRef.current = max;
+  const confirmarRef = useRef(onConfirmar);
+  useEffect(() => {
+    maxRef.current = max;
+    confirmarRef.current = onConfirmar;
+  }, [max, onConfirmar]);
 
-  const completar = () => {
+  const completar = useCallback(() => {
     setHecho(true);
     vibra('exito');
-    setTimeout(onConfirmar, 380);
-  };
-  const completarRef = useRef(completar);
-  completarRef.current = completar;
+    setTimeout(() => confirmarRef.current(), 380);
+  }, []);
 
-  const gesto = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 4,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => vibra(),
-      onPanResponderMove: (_, g) => {
-        x.value = Math.min(maxRef.current, Math.max(0, g.dx));
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dx > maxRef.current * 0.8) {
-          x.value = withTiming(maxRef.current, { duration: 160 });
-          completarRef.current();
-        } else {
-          x.value = withSpring(0, { damping: 16, stiffness: 220 });
-        }
-      },
-    }),
-  ).current;
+  const gesto = useMemo(
+    () =>
+      // eslint-disable-next-line react-hooks/refs -- las refs solo se leen al arrastrar, no al pintar
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 4,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: () => vibra(),
+        onPanResponderMove: (_, g) => {
+          x.set(Math.min(maxRef.current, Math.max(0, g.dx)));
+        },
+        onPanResponderRelease: (_, g) => {
+          if (g.dx > maxRef.current * 0.8) {
+            x.set(withTiming(maxRef.current, { duration: 160 }));
+            completar();
+          } else {
+            x.set(withSpring(0, { damping: 16, stiffness: 220 }));
+          }
+        },
+      }),
+    [x, completar],
+  );
 
   const asaAnim = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   const rellenoAnim = useAnimatedStyle(() => ({ width: x.value + ASA }));

@@ -34,7 +34,7 @@ export default function MaterialPantalla() {
     <View style={{ maxWidth: 1100 }}>
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 14 }}>
-          // {CENTRO} · {unidades(materiales)} unidades
+          {'// '}{CENTRO} · {unidades(materiales)} unidades
         </Mono>
       </Animated.View>
       <TitularRevela texto={'Material\ndel centro.'} tam={ancho ? 76 : 44} />
@@ -108,7 +108,6 @@ function FilaMaterial({ m }: { m: Material }) {
     cfg.editarMaterial(m.id, { estado: 'averiado', prestadoA: undefined, nota: m.nota ?? 'Avisado a conserjería' });
     enviar([
       {
-        id: `rev-${m.id}-${Date.now()}`,
         titulo: `Revisar ${m.nombre.toLowerCase()} (${cfg.nombreEspacio(m.espacio)})`,
         responsableId: CONSERJERIA,
         dia: 'Hoy',
@@ -189,7 +188,7 @@ function FilaMaterial({ m }: { m: Material }) {
       )}
       {panel === 'prestar' && (
         <Animated.View entering={entra(0)} style={s.elegir}>
-          <Mono style={{ width: '100%', marginBottom: 4 }}>// ¿A quién se lo prestas?</Mono>
+          <Mono style={{ width: '100%', marginBottom: 4 }}>{'// '}¿A quién se lo prestas?</Mono>
           {activos().filter((p) => p.id !== DIRECTOR.id).map((p) => (
             <Pressable
               key={p.id}
@@ -241,7 +240,7 @@ function NuevoMaterial({ onHecho }: { onHecho: () => void }) {
 
   return (
     <Animated.View entering={entra(0)} style={[s.nuevo, cortado(18)]}>
-      <Mono style={{ color: color.lima }}>// Nuevo material</Mono>
+      <Mono style={{ color: color.lima }}>{'// '}Nuevo material</Mono>
       <TextInput value={nombre} onChangeText={setNombre} placeholder="Nombre (p. ej. Proyector Epson)" placeholderTextColor="#6E7385" style={s.nuevoNombre} />
       <View style={s.nuevoFila}>
         {TIPOS_MATERIAL.map((t) => (

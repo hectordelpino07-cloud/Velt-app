@@ -7,6 +7,7 @@ import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Chip, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
 import { DIRECTOR, nombreCompleto, persona } from '../data/equipo';
 import { entra, entraLado, recoloca, sale, vibra } from '../lib/motion';
+import { aFecha, etiquetaDia } from '../lib/fechas';
 import { analizarIdea, Analisis } from '../lib/parser';
 import { useVelt } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -116,7 +117,7 @@ export default function NuevaIdea() {
   return (
     <View>
       <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>// Idea · Hoy {ahora}</Mono>
+        <Mono style={{ marginBottom: 12 }}>{'// '}Idea · Hoy {ahora}</Mono>
       </Animated.View>
       <View style={{ marginBottom: 30 }}>
         <TitularRevela texto={'De tu idea\na tareas claras.'} tam={ancho ? 68 : 38} />
@@ -206,7 +207,7 @@ export default function NuevaIdea() {
                 <Animated.View key={p.id} entering={entra(i, finales.length * 70 + 150)} exiting={FadeOutUp.duration(220)} layout={recoloca}>
                   <Panel bg={color.lima} corte={14} style={{ marginTop: 16 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Mono style={{ color: color.tinta }}>// VELT necesita saber una cosa</Mono>
+                      <Mono style={{ color: color.tinta }}>{'// '}VELT necesita saber una cosa</Mono>
                       <Mono style={{ color: color.tinta }}>
                         {i + 1}/{pendientes.length}
                       </Mono>
@@ -266,11 +267,11 @@ export default function NuevaIdea() {
                     </Text>
                   </View>
                   <Panel style={{ width: ancho ? 280 : '100%' }} corte={16} sombra={8} tonoSombra={color.lima}>
-                    <Mono style={{ color: color.lima, marginBottom: 10 }}>// Nueva tarea · de {DIRECTOR.nombre}</Mono>
+                    <Mono style={{ color: color.lima, marginBottom: 10 }}>{'// '}Nueva tarea · de {DIRECTOR.nombre}</Mono>
                     <Titular tam={22} style={{ color: color.crema, marginBottom: 12 }}>
                       {primera.titulo}
                     </Titular>
-                    <Etiqueta dia={primera.dia} hora={primera.hora} acento fondo={color.tinta} />
+                    <Etiqueta dia={etiquetaRelativa(primera.dia)} hora={primera.hora} acento fondo={color.tinta} />
                     {analisis.porque ? <Text style={s.porque}>Por qué: {analisis.porque}</Text> : null}
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                       <View style={[s.falsoBoton, { backgroundColor: color.cobalto }]}>
@@ -358,7 +359,7 @@ function Escaner() {
 function Pensando() {
   return (
     <View style={{ borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 16 }}>
-      <Mono style={{ marginBottom: 12 }}>// VELT está leyendo tu idea</Mono>
+      <Mono style={{ marginBottom: 12 }}>{'// '}VELT está leyendo tu idea</Mono>
       {PASOS.map((p, i) => (
         <Animated.View key={p} entering={entraLado(i, 0)} style={s.paso}>
           <Cuadro retraso={i * 300} />
@@ -389,7 +390,7 @@ function Ejemplos({ onElegir }: { onElegir: (t: string) => void }) {
   return (
     <View>
       <Animated.View entering={entra(3)} style={{ borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 14, marginBottom: 6 }}>
-        <Mono>// Cómo funciona</Mono>
+        <Mono>{'// '}Cómo funciona</Mono>
       </Animated.View>
       {['Escribe la idea como se la dirías a tu equipo.', 'VELT la separa en tareas con responsable y fecha.', 'Si falta algo, te lo pregunta. Solo eso.', 'Cada persona recibe lo suyo y lo confirma.'].map(
         (t, i) => (
@@ -400,7 +401,7 @@ function Ejemplos({ onElegir }: { onElegir: (t: string) => void }) {
         ),
       )}
       <Animated.View entering={entra(5, 260)} style={{ marginTop: 28 }}>
-        <Mono style={{ marginBottom: 12 }}>// Prueba con un ejemplo</Mono>
+        <Mono style={{ marginBottom: 12 }}>{'// '}Prueba con un ejemplo</Mono>
         <View style={{ gap: 10 }}>
           {EJEMPLOS.map((e) => (
             <TarjetaEjemplo key={e.titulo} titulo={e.titulo} texto={e.texto} onPress={() => onElegir(e.texto)} />
@@ -451,7 +452,7 @@ function FilaTarea({ t, i, onQuitar }: { t: Final; i: number; onQuitar: () => vo
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end', gap: 8 }}>
-        <Etiqueta dia={t.dia} hora={t.hora} acento={!t.responsableId || !t.dia} />
+        <Etiqueta dia={etiquetaRelativa(t.dia)} hora={t.hora} acento={!t.responsableId || !t.dia} />
         <Pressable onPress={onQuitar} accessibilityLabel={`Quitar ${t.titulo}`}>
           {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.quitar, hovered && { color: color.rojo }]}>Quitar</Text>}
         </Pressable>
@@ -464,7 +465,7 @@ function PantallaEnviado({ enviado, ancho, onNueva }: { enviado: Enviado; ancho:
   return (
     <View style={{ maxWidth: 760 }}>
       <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>// Enviado · hoy {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Mono>
+        <Mono style={{ marginBottom: 12 }}>{'// '}Enviado · hoy {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Mono>
       </Animated.View>
       <Animated.View entering={ZoomIn.springify().damping(14).stiffness(180)}>
         <TitularRevela texto="Enviado." tam={ancho ? 96 : 56} style={{ color: color.cobalto }} />
@@ -514,9 +515,16 @@ function Dato({ n, l, alerta }: { n: number; l: string; alerta?: boolean }) {
   );
 }
 
-const ORDEN = ['Hoy', 'Mañana', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const diaLimite = (ts: { dia: string | null }[]) =>
-  ts.map((t) => t.dia).filter(Boolean).sort((a, b) => ORDEN.indexOf(b!) - ORDEN.indexOf(a!))[0] ?? null;
+// «Jue» → «Jue 30»: así se ve qué jueves es antes de enviar
+const etiquetaRelativa = (dia: string | null) => {
+  const f = aFecha(dia);
+  return f ? etiquetaDia(f) : dia;
+};
+// La fecha más lejana de todas las tareas
+const diaLimite = (ts: { dia: string | null }[]) => {
+  const ultima = ts.map((t) => aFecha(t.dia)).filter((f): f is string => !!f).sort().pop();
+  return ultima ? etiquetaDia(ultima) : null;
+};
 
 const s = StyleSheet.create({
   columnas: { flexDirection: 'row', gap: 32, alignItems: 'flex-start' },

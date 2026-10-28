@@ -1,8 +1,8 @@
-// Estado compartido de la app: tareas enviadas y quién está usando la app.
+// Estado compartido de la app: las tareas enviadas y su estado.
 // De momento vive en el dispositivo (en la web se guarda en el navegador).
 // Cuando haya servidor, este archivo es el único que hay que cambiar.
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { DIRECTOR } from '../data/equipo';
+import { aFecha } from './fechas';
 
 export type Estado = 'pendiente' | 'confirmada' | 'hecha';
 
@@ -10,7 +10,8 @@ export type Tarea = {
   id: string;
   titulo: string;
   responsableId: string;
-  dia: string | null;
+  dia: string | null; // como se dijo: 'Hoy', 'Mañana', 'Jue'…
+  fecha?: string | null; // fecha real (AAAA-MM-DD), calculada al enviar
   hora: string | null;
   porque: string;
   nota?: string;
@@ -26,8 +27,9 @@ const EJEMPLO: Tarea[] = [
     titulo: 'Revisar el cuadrante de guardias de noviembre',
     responsableId: 'ines',
     dia: 'Vie',
+    fecha: aFecha('Vie'),
     hora: '14:00',
-    porque: 'El lunes entra el nuevo horario de 2.º de Bachillerato.',
+    porque: 'El lunes empieza la segunda evaluación y cambian las guardias.',
     estado: 'confirmada',
     creada: Date.now() - 86_400_000,
   },
@@ -36,6 +38,7 @@ const EJEMPLO: Tarea[] = [
     titulo: 'Montar las sillas del salón de actos',
     responsableId: 'carmen',
     dia: 'Jue',
+    fecha: aFecha('Jue'),
     hora: '16:30',
     porque: 'El jueves hay claustro a las 17:00.',
     estado: 'pendiente',
@@ -44,6 +47,8 @@ const EJEMPLO: Tarea[] = [
 ];
 
 const CLAVE = 'velt.tareas.v1';
+let contador = 0;
+const nuevoId = () => `t-${Date.now().toString(36)}-${(contador++).toString(36)}`;
 const almacen = typeof localStorage !== 'undefined' ? localStorage : null;
 
 function cargar(): Tarea[] {
@@ -57,9 +62,7 @@ function cargar(): Tarea[] {
 
 type Ctx = {
   tareas: Tarea[];
-  usuarioId: string;
-  setUsuarioId: (id: string) => void;
-  enviar: (nuevas: Omit<Tarea, 'estado' | 'creada'>[]) => void;
+  enviar: (nuevas: (Omit<Tarea, 'estado' | 'creada' | 'id'> & { id?: string })[]) => void;
   cambiarEstado: (id: string, estado: Estado) => void;
   preguntarDuda: (id: string, duda: string) => void;
   responder: (id: string, respuesta: string) => void;
@@ -71,7 +74,6 @@ const VeltContext = createContext<Ctx | null>(null);
 
 export function VeltProvider({ children }: { children: ReactNode }) {
   const [tareas, setTareas] = useState<Tarea[]>(cargar);
-  const [usuarioId, setUsuarioId] = useState(DIRECTOR.id);
 
   useEffect(() => {
     try {
@@ -86,16 +88,15 @@ export function VeltProvider({ children }: { children: ReactNode }) {
     tareas.filter((t) => t.estado !== 'hecha').forEach((t) => (carga[t.responsableId] = (carga[t.responsableId] ?? 0) + 1));
     return {
       tareas,
-      usuarioId,
-      setUsuarioId,
       carga,
-      enviar: (nuevas) => setTareas((ts) => [...nuevas.map((t) => ({ ...t, estado: 'pendiente' as const, creada: Date.now() })), ...ts]),
+      enviar: (nuevas) =>
+        setTareas((ts) => [...nuevas.map((t) => ({ ...t, id: t.id ?? nuevoId(), fecha: t.fecha ?? aFecha(t.dia), estado: 'pendiente' as const, creada: Date.now() })), ...ts]),
       cambiarEstado: (id, estado) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, estado } : t))),
       preguntarDuda: (id, duda) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, duda, respuesta: undefined } : t))),
       responder: (id, respuesta) => setTareas((ts) => ts.map((t) => (t.id === id ? { ...t, respuesta } : t))),
       reiniciar: () => setTareas(EJEMPLO),
     };
-  }, [tareas, usuarioId]);
+  }, [tareas]);
 
   return <VeltContext.Provider value={valor}>{children}</VeltContext.Provider>;
 }

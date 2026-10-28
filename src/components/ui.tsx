@@ -149,13 +149,13 @@ export function Boton({
         onPress={onPress}
         disabled={disabled}
         accessibilityRole="button"
-        onHoverIn={() => (alto.value = withTiming(1, { duration: 160 }))}
-        onHoverOut={() => (alto.value = withTiming(0, { duration: 160 }))}
+        onHoverIn={() => alto.set(withTiming(1, { duration: 160 }))}
+        onHoverOut={() => alto.set(withTiming(0, { duration: 160 }))}
         onPressIn={() => {
-          alto.value = withTiming(0, { duration: 80 });
-          escala.value = withTiming(WEB ? 1 : 0.96, { duration: 90 });
+          alto.set(withTiming(0, { duration: 80 }));
+          escala.set(withTiming(WEB ? 1 : 0.96, { duration: 90 }));
         }}
-        onPressOut={() => (escala.value = withSpring(1, { damping: 14, stiffness: 260 }))}
+        onPressOut={() => escala.set(withSpring(1, { damping: 14, stiffness: 260 }))}
       >
         <Animated.View
           style={[
@@ -193,8 +193,8 @@ export function Chip({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      onPressIn={() => (escala.value = withTiming(0.95, { duration: 80 }))}
-      onPressOut={() => (escala.value = withSpring(1, { damping: 12, stiffness: 280 }))}
+      onPressIn={() => escala.set(withTiming(0.95, { duration: 80 }))}
+      onPressOut={() => escala.set(withSpring(1, { damping: 12, stiffness: 280 }))}
     >
       {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
         <Animated.View style={[s.chip, (hovered || activo) && { backgroundColor: color.tinta }, anim]}>
@@ -210,11 +210,23 @@ export function Chip({
   );
 }
 
-export function Etiqueta({ dia, hora, acento, fondo = color.blanco }: { dia: string | null; hora: string | null; acento?: boolean; fondo?: string }) {
-  const texto = [dia, hora].filter(Boolean).join(' ') || 'Sin fecha';
+export function Etiqueta({
+  dia,
+  hora,
+  acento,
+  alerta,
+  fondo = color.blanco,
+}: {
+  dia: string | null;
+  hora: string | null;
+  acento?: boolean;
+  alerta?: boolean; // con retraso
+  fondo?: string;
+}) {
+  const texto = [alerta ? 'Con retraso ·' : null, dia, hora].filter(Boolean).join(' ') || 'Sin fecha';
   return (
-    <View style={[s.tag, acento && { backgroundColor: color.lima }, cortado(6)]}>
-      <Text style={[s.tagTexto, acento && { color: color.tinta }]}>{texto}</Text>
+    <View style={[s.tag, acento && { backgroundColor: color.lima }, alerta && { backgroundColor: color.rojo }, cortado(6)]}>
+      <Text style={[s.tagTexto, acento && { color: color.tinta }, alerta && { color: color.blanco }]}>{texto}</Text>
       <Esquina tam={6} fondo={fondo} />
     </View>
   );
@@ -275,7 +287,7 @@ export function Barra({ tramos, total, alto = 10, vacio = '#E2DDD0' }: { tramos:
 function Tramo({ valor, color: c, retraso }: { valor: number; color: string; retraso: number }) {
   const f = useSharedValue(0);
   useEffect(() => {
-    const t = setTimeout(() => (f.value = withTiming(valor, { duration: 700, easing: curva })), retraso);
+    const t = setTimeout(() => f.set(withTiming(valor, { duration: 700, easing: curva })), retraso);
     return () => clearTimeout(t);
   }, [valor, retraso, f]);
   const anim = useAnimatedStyle(() => ({ flexGrow: f.value }));

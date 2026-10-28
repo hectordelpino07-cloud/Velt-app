@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeOutUp } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
-import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
+import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel } from '../components/ui';
 import { activos, DIRECTOR, nombreCompleto, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
+import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { entra, recoloca, sale } from '../lib/motion';
 import { Estado, Tarea, useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
@@ -32,11 +33,15 @@ export default function Seguimiento() {
   const n = (e: Estado) => tareas.filter((t) => t.estado === e).length;
   const equipo = activos().filter((p) => p.id !== DIRECTOR.id).sort((a, b) => (carga[b.id] ?? 0) - (carga[a.id] ?? 0));
   const maxCarga = Math.max(CARGA_ALTA, ...equipo.map((p) => carga[p.id] ?? 0));
+  const retrasadas = tareas.filter((t) => t.estado !== 'hecha' && atrasada(t)).length;
 
   return (
     <View>
       <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>// Seguimiento · en tiempo real</Mono>
+        <Mono style={{ marginBottom: 12 }}>
+          {'// '}Seguimiento · {tareas.length} {tareas.length === 1 ? 'tarea' : 'tareas'}
+          {retrasadas ? ` · ${retrasadas} con retraso` : ''}
+        </Mono>
       </Animated.View>
       <View style={{ marginBottom: 28 }}>
         <TitularRevela texto={'Quién tiene\nqué entre manos.'} tam={ancho ? 68 : 38} />
@@ -63,7 +68,7 @@ export default function Seguimiento() {
 
       {dudas.length > 0 && (
         <View style={{ marginTop: 28 }}>
-          <Mono style={{ marginBottom: 12 }}>// Dudas del equipo · {dudas.length}</Mono>
+          <Mono style={{ marginBottom: 12 }}>{'// '}Dudas del equipo · {dudas.length}</Mono>
           <View style={{ gap: 14 }}>
             {dudas.map((t, i) => (
               <Animated.View key={t.id} entering={entra(i, 200)} exiting={FadeOutUp.duration(240)} layout={recoloca}>
@@ -103,7 +108,7 @@ export default function Seguimiento() {
 
         <View style={[s.columnas, !columnasEnFila && { flexDirection: 'column', alignItems: 'stretch' }, cargaAlLado && { flex: 1 }]}>
           {COLUMNAS.map((c, ci) => {
-            const lista = tareas.filter((t) => t.estado === c.estado);
+            const lista = tareas.filter((t) => t.estado === c.estado).sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)));
             return (
               <Animated.View key={c.estado} entering={entra(ci, 350)} style={columnasEnFila ? { flex: 1, minWidth: 0 } : undefined}>
                 <View style={[s.cabecera, { borderTopColor: c.tono === '#C9C3B4' ? color.tinta : c.tono }]}>
@@ -123,7 +128,7 @@ export default function Seguimiento() {
       </View>
 
       <Boton variante="linea" pequeno onPress={reiniciar} style={{ alignSelf: 'flex-start', marginTop: 36 }}>
-        Borrar datos de prueba
+        Volver a las tareas de ejemplo
       </Boton>
     </View>
   );
@@ -148,7 +153,7 @@ function Duda({ t }: { t: Tarea }) {
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
         <Avatar id={p.id} tam={32} />
         <View style={{ flex: 1 }}>
-          <Mono style={{ color: color.tinta }}>// {nombreCompleto(p)} pregunta</Mono>
+          <Mono style={{ color: color.tinta }}>{'// '}{nombreCompleto(p)} pregunta</Mono>
           <Text style={s.dudaTarea}>{t.titulo}</Text>
         </View>
       </View>
@@ -187,7 +192,7 @@ function Fila({ t }: { t: Tarea }) {
         <Text style={[s.titulo, t.estado === 'hecha' && { textDecorationLine: 'line-through', color: color.gris }]}>{t.titulo}</Text>
         <Text style={s.sub}>{p ? nombreCompleto(p) : '—'}</Text>
         <View style={{ marginTop: 8, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <Etiqueta dia={t.dia} hora={t.hora} />
+          <Etiqueta dia={diaDeTarea(t)} hora={t.hora} alerta={t.estado !== 'hecha' && atrasada(t)} />
           {t.duda ? <Text style={s.marcaDuda}>{t.respuesta ? 'Duda resuelta' : 'Tiene una duda'}</Text> : null}
         </View>
       </View>

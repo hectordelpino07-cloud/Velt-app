@@ -1,7 +1,7 @@
 // Configurar centro: dirección crea las plantas, dice cuántas aulas tiene
 // cada una, les pone nombre y rellena los horarios. Pensado para hacerse en
 // diez minutos y sin manual: todo se edita en el sitio y se guarda solo.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
@@ -28,7 +28,7 @@ export default function Configurar() {
     <View style={{ maxWidth: 1000 }}>
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 14 }}>
-          // {CENTRO} · se guarda solo
+          {'// '}{CENTRO} · se guarda solo
         </Mono>
       </Animated.View>
       <TitularRevela texto={'Configura\ntu centro.'} tam={ancho ? 76 : 34} />
@@ -160,7 +160,7 @@ function FilaEspacio({ e }: { e: Espacio }) {
         accessibilityRole="button"
         style={[s.tipo, e.cerrado && { backgroundColor: '#E7E3D8', borderColor: color.gris }]}
       >
-        <Text style={s.tipoTexto}>{e.cerrado ? 'Cerrada · abrir' : 'Cerrar'}</Text>
+        <Text style={s.tipoTexto}>{e.cerrado ? 'Reabrir' : 'Cerrar'}</Text>
       </Pressable>
       <Pressable onPress={() => cfg.quitarEspacio(e.id)} accessibilityLabel={`Borrar ${e.nombre}`} style={s.borrar}>
         {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.borrarTexto, hovered && { color: color.rojo }]}>✕</Text>}
@@ -180,7 +180,7 @@ function Jornada() {
   ];
   return (
     <View>
-      <Mono style={{ marginBottom: 10 }}>// Empieza por una plantilla</Mono>
+      <Mono style={{ marginBottom: 10 }}>{'// '}Empieza por una plantilla</Mono>
       <View style={s.plantillas}>
         {JORNADAS.map((j) => {
           const igual = j.franjas.length === cfg.franjas.length && j.franjas.every((f, i) => f.inicio === cfg.franjas[i].inicio && f.turno === cfg.franjas[i].turno);
@@ -236,8 +236,12 @@ function FilaFranja({ f }: { f: Franja }) {
   const [inicio, setInicio] = useState(f.inicio);
   const [fin, setFin] = useState(f.fin);
   // Si la hora cambia desde fuera (al elegir otra plantilla), se actualiza aquí
-  useEffect(() => setInicio(f.inicio), [f.inicio]);
-  useEffect(() => setFin(f.fin), [f.fin]);
+  const [antes, setAntes] = useState({ inicio: f.inicio, fin: f.fin });
+  if (antes.inicio !== f.inicio || antes.fin !== f.fin) {
+    setAntes({ inicio: f.inicio, fin: f.fin });
+    setInicio(f.inicio);
+    setFin(f.fin);
+  }
   const guardar = (campo: 'inicio' | 'fin', v: string) => {
     const limpio = v.replace(/[^0-9:]/g, '').slice(0, 5);
     (campo === 'inicio' ? setInicio : setFin)(limpio);
@@ -247,7 +251,12 @@ function FilaFranja({ f }: { f: Franja }) {
     <Animated.View entering={entra(0)} exiting={sale} layout={recoloca} style={s.espacio}>
       <TextInput value={inicio} onChangeText={(v) => guardar('inicio', v)} style={[s.hora, !HORA.test(inicio) && s.horaMal]} accessibilityLabel="Hora de inicio" />
       <Text style={s.guion}>–</Text>
-      <TextInput value={fin} onChangeText={(v) => guardar('fin', v)} style={[s.hora, !HORA.test(fin) && s.horaMal]} accessibilityLabel="Hora de final" />
+      <TextInput
+        value={fin}
+        onChangeText={(v) => guardar('fin', v)}
+        style={[s.hora, (!HORA.test(fin) || fin <= inicio) && s.horaMal]}
+        accessibilityLabel="Hora de final"
+      />
       <TextInput value={f.nombre} onChangeText={(t) => cfg.editarFranja(f.id, { nombre: t })} style={s.espacioNombre} accessibilityLabel="Nombre de la hora" />
       <Pressable onPress={() => cfg.editarFranja(f.id, { recreo: !f.recreo })} style={[s.tipo, f.recreo && s.tipoOn]}>
         <Text style={[s.tipoTexto, f.recreo && { color: color.crema }]}>Recreo</Text>
@@ -390,7 +399,7 @@ function Horarios({ ancho }: { ancho: boolean }) {
   return (
     <View>
       {profes.length === 0 && <Text style={s.vacio}>No hay profesorado. Añádelo en «03 · Personal».</Text>}
-      <Mono style={{ marginBottom: 10 }}>// Elige a un profesor</Mono>
+      <Mono style={{ marginBottom: 10 }}>{'// '}Elige a un profesor</Mono>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
         {profes.map((p) => {
           const id = p.id;
