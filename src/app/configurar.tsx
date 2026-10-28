@@ -1,20 +1,20 @@
 // Configurar centro: dirección crea las plantas, dice cuántas aulas tiene
 // cada una, les pone nombre y rellena los horarios. Pensado para hacerse en
 // diez minutos y sin manual: todo se edita en el sitio y se guarda solo.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, cortado, Mono } from '../components/ui';
-import { Clase, esClase, esLugar, Espacio, FRANJAS, Hueco, MATERIA, PROFESORADO, TIPOS_ESPACIO } from '../data/centro';
-import { CENTRO, persona } from '../data/equipo';
+import { Clase, esClase, esLugar, Espacio, Franja, JORNADAS, TIPOS_ESPACIO, TurnoFranja } from '../data/centro';
+import { activos, CENTRO, daClase, DIRECTOR, EQUIPO, Persona, persona, ROLES, TURNOS } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { entra, recoloca, sale, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
-type Pestana = 'espacios' | 'horarios';
+type Pestana = 'espacios' | 'jornada' | 'personal' | 'horarios';
 
 export default function Configurar() {
   const { width } = useWindowDimensions();
@@ -34,8 +34,8 @@ export default function Configurar() {
       <TitularRevela texto={'Configura\ntu centro.'} tam={ancho ? 76 : 34} />
       <Animated.View entering={entra(2, 120)}>
         <Text style={s.intro}>
-          Dos pasos: primero las plantas y sus aulas, después qué hace cada profesor en cada hora. Con eso VELT ya sabe qué aula está libre y dónde está cada
-          uno.
+          Cuatro pasos, en este orden: las plantas y sus aulas, la jornada (horas de mañana, de tarde o ambas), el personal y qué hace cada profesor en cada hora.
+          Con eso VELT ya sabe qué aula está libre y dónde está cada uno.
         </Text>
       </Animated.View>
 
@@ -43,7 +43,9 @@ export default function Configurar() {
         {(
           [
             ['espacios', '01 · Plantas y aulas'],
-            ['horarios', '02 · Horarios'],
+            ['jornada', '02 · Jornada'],
+            ['personal', '03 · Personal'],
+            ['horarios', '04 · Horarios'],
           ] as const
         ).map(([id, texto]) => (
           <Pressable key={id} onPress={() => setPestana(id)} accessibilityRole="tab" style={[s.pestana, pestana === id && s.pestanaOn, cortado(8)]}>
@@ -52,7 +54,10 @@ export default function Configurar() {
         ))}
       </View>
 
-      {pestana === 'espacios' ? <Espacios /> : <Horarios ancho={ancho} />}
+      {pestana === 'espacios' && <Espacios />}
+      {pestana === 'jornada' && <Jornada />}
+      {pestana === 'personal' && <PersonalLista />}
+      {pestana === 'horarios' && <Horarios ancho={ancho} />}
 
       <View style={s.reinicio}>
         <View style={{ flex: 1, minWidth: 220 }}>
@@ -164,13 +169,207 @@ function FilaEspacio({ e }: { e: Espacio }) {
   );
 }
 
-// ——— Paso 2: horarios ———
+// ——— Paso 2: jornada ———
+
+function Jornada() {
+  const cfg = useCentro();
+  const toast = useToast();
+  const turnos: { id: TurnoFranja; nombre: string }[] = [
+    { id: 'manana', nombre: 'Mañana' },
+    { id: 'tarde', nombre: 'Tarde' },
+  ];
+  return (
+    <View>
+      <Mono style={{ marginBottom: 10 }}>// Empieza por una plantilla</Mono>
+      <View style={s.plantillas}>
+        {JORNADAS.map((j) => {
+          const igual = j.franjas.length === cfg.franjas.length && j.franjas.every((f, i) => f.inicio === cfg.franjas[i].inicio && f.turno === cfg.franjas[i].turno);
+          return (
+            <Pressable
+              key={j.id}
+              onPress={() => {
+                cfg.ponerJornada(j.id);
+                vibra();
+                toast(`Jornada «${j.nombre}». Las clases que ya tenías en esas horas se mantienen.`);
+              }}
+              accessibilityRole="button"
+              style={[s.plantilla, igual && s.plantillaOn, cortado(12)]}
+            >
+              <Text style={[s.plantillaNombre, igual && { color: color.crema }]}>{j.nombre}</Text>
+              <Text style={[s.plantillaDetalle, igual && { color: color.grisClaro }]}>{j.detalle}</Text>
+              {igual && <Text style={s.plantillaMarca}>✓ En uso</Text>}
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={s.notaHorario}>Después ajusta cada hora: escribe el inicio y el final, marca el recreo o borra las que sobren.</Text>
+
+      {turnos.map((t) => {
+        const suyas = cfg.franjas.filter((f) => f.turno === t.id);
+        return (
+          <View key={t.id} style={[s.planta, cortado(18), { marginTop: 16 }]}>
+            <View style={s.plantaCabecera}>
+              <Text style={[s.plantaNombre, { flex: 0 }]}>{t.nombre}</Text>
+              <Mono>{suyas.length ? `${suyas[0].inicio} – ${suyas[suyas.length - 1].fin}` : 'Sin horas'}</Mono>
+            </View>
+            {suyas.map((f) => (
+              <FilaFranja key={f.id} f={f} />
+            ))}
+            <Pressable onPress={() => cfg.addFranja(t.id)} accessibilityRole="button" style={{ marginTop: 12, alignSelf: 'flex-start' }}>
+              {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                <Text style={[s.anadirTexto, hovered && { color: color.cobalto }]}>+ Añadir una hora de {t.nombre.toLowerCase()}</Text>
+              )}
+            </Pressable>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function FilaFranja({ f }: { f: Franja }) {
+  const cfg = useCentro();
+  // Se escribe libremente y solo se guarda cuando la hora es válida (HH:MM)
+  const [inicio, setInicio] = useState(f.inicio);
+  const [fin, setFin] = useState(f.fin);
+  // Si la hora cambia desde fuera (al elegir otra plantilla), se actualiza aquí
+  useEffect(() => setInicio(f.inicio), [f.inicio]);
+  useEffect(() => setFin(f.fin), [f.fin]);
+  const guardar = (campo: 'inicio' | 'fin', v: string) => {
+    const limpio = v.replace(/[^0-9:]/g, '').slice(0, 5);
+    (campo === 'inicio' ? setInicio : setFin)(limpio);
+    if (HORA.test(limpio)) cfg.editarFranja(f.id, { [campo]: limpio });
+  };
+  return (
+    <Animated.View entering={entra(0)} exiting={sale} layout={recoloca} style={s.espacio}>
+      <TextInput value={inicio} onChangeText={(v) => guardar('inicio', v)} style={[s.hora, !HORA.test(inicio) && s.horaMal]} accessibilityLabel="Hora de inicio" />
+      <Text style={s.guion}>–</Text>
+      <TextInput value={fin} onChangeText={(v) => guardar('fin', v)} style={[s.hora, !HORA.test(fin) && s.horaMal]} accessibilityLabel="Hora de final" />
+      <TextInput value={f.nombre} onChangeText={(t) => cfg.editarFranja(f.id, { nombre: t })} style={s.espacioNombre} accessibilityLabel="Nombre de la hora" />
+      <Pressable onPress={() => cfg.editarFranja(f.id, { recreo: !f.recreo })} style={[s.tipo, f.recreo && s.tipoOn]}>
+        <Text style={[s.tipoTexto, f.recreo && { color: color.crema }]}>Recreo</Text>
+      </Pressable>
+      <Pressable onPress={() => cfg.quitarFranja(f.id)} accessibilityLabel={`Borrar ${f.nombre}`} style={s.borrar}>
+        {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.borrarTexto, hovered && { color: color.rojo }]}>✕</Text>}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ——— Paso 3: personal ———
+
+function PersonalLista() {
+  const cfg = useCentro();
+  const toast = useToast();
+  const lista = [...EQUIPO].sort((a, b) => Number(!!a.baja) - Number(!!b.baja));
+  return (
+    <View>
+      <View style={[s.planta, cortado(18)]}>
+        <View style={s.plantaCabecera}>
+          <Text style={[s.plantaNombre, { flex: 0 }]}>Personal</Text>
+          <Mono>{activos().length} en activo</Mono>
+        </View>
+        {lista.map((p) => (
+          <FilaPersona key={p.id} p={p} />
+        ))}
+        <View style={s.anadir}>
+          <Boton
+            pequeno
+            onPress={() => {
+              cfg.addPersona();
+              vibra();
+              toast('Persona añadida al final de la lista. Escribe su nombre y elige su turno.');
+            }}
+          >
+            + Añadir persona
+          </Boton>
+        </View>
+      </View>
+      <Text style={s.notaHorario}>
+        Dar de baja no borra a nadie: deja de aparecer en el mapa, los horarios y las propuestas de VELT, pero sus tareas antiguas se conservan. Solo
+        datos del personal del centro, nunca de alumnos.
+      </Text>
+    </View>
+  );
+}
+
+function FilaPersona({ p }: { p: Persona }) {
+  const cfg = useCentro();
+  const director = p.id === DIRECTOR.id;
+  return (
+    <Animated.View entering={entra(0)} layout={recoloca} style={[s.persona, p.baja && { opacity: 0.45 }]}>
+      <View style={s.personaArriba}>
+        <Avatar id={p.id} tam={32} />
+        <TextInput
+          value={p.nombre}
+          onChangeText={(t) => cfg.editarPersona(p.id, { nombre: t })}
+          placeholder="Nombre"
+          placeholderTextColor="#9A9DA8"
+          style={[s.campo, { width: 120, fontFamily: font.uiBold }]}
+          editable={!p.baja}
+        />
+        <TextInput
+          value={p.apellido}
+          onChangeText={(t) => cfg.editarPersona(p.id, { apellido: t })}
+          placeholder="Apellido"
+          placeholderTextColor="#9A9DA8"
+          style={[s.campo, { width: 130 }]}
+          editable={!p.baja}
+        />
+        <TextInput
+          value={p.materia ?? ''}
+          onChangeText={(t) => cfg.editarPersona(p.id, { materia: t })}
+          placeholder={daClase(p) ? 'Asignatura' : 'Puesto'}
+          placeholderTextColor="#9A9DA8"
+          style={[s.campo, { flex: 1, minWidth: 120 }]}
+          editable={!p.baja && daClase(p)}
+        />
+        {!director && (
+          <Pressable onPress={() => cfg.darDeBaja(p.id, !p.baja)} accessibilityRole="button" style={{ paddingHorizontal: 6 }}>
+            {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+              <Text style={[s.baja, hovered && { color: p.baja ? color.cobalto : color.rojo }]}>{p.baja ? 'Recuperar' : 'Dar de baja'}</Text>
+            )}
+          </Pressable>
+        )}
+      </View>
+      {!p.baja && (
+        <View style={s.personaAbajo}>
+          {director ? (
+            <Text style={s.tipoTexto}>Dirección · siempre en el centro</Text>
+          ) : (
+            <>
+              {ROLES.map((r) => (
+                <Pressable key={r} onPress={() => cfg.editarPersona(p.id, { rol: r })} style={[s.tipo, p.rol === r && s.tipoOn]}>
+                  <Text style={[s.tipoTexto, p.rol === r && { color: color.crema }]}>{r}</Text>
+                </Pressable>
+              ))}
+              <View style={s.separador} />
+              {TURNOS.map((t) => (
+                <Pressable key={t.id} onPress={() => cfg.editarPersona(p.id, { turno: t.id })} style={[s.tipo, p.turno === t.id && s.turnoOn]}>
+                  <Text style={[s.tipoTexto, p.turno === t.id && { color: color.tinta }]}>{t.nombre}</Text>
+                </Pressable>
+              ))}
+            </>
+          )}
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+// ——— Paso 4: horarios ———
 
 function Horarios({ ancho }: { ancho: boolean }) {
   const cfg = useCentro();
-  const [quien, setQuien] = useState(PROFESORADO[0]);
+  const profes = activos().filter(daClase);
+  const [elegido, setQuien] = useState(profes[0]?.id ?? '');
+  const quien = profes.some((p) => p.id === elegido) ? elegido : profes[0]?.id ?? '';
+  const yo = persona(quien);
   const [eligiendo, setEligiendo] = useState<number | null>(null);
-  const huecos = cfg.horario[quien] ?? FRANJAS.map(() => 'libre' as Hueco);
+  const huecos = cfg.horario[quien] ?? [];
   const lugaresClase = cfg.espacios.filter((e) => e.tipo !== 'oficina');
 
   // ¿Alguien más da clase en ese espacio a esa hora?
@@ -183,17 +382,18 @@ function Horarios({ ancho }: { ancho: boolean }) {
     cfg.ponerHueco(quien, franja, {
       espacio: libre.id,
       grupo: libre.tipo === 'aula' ? libre.nombre : '',
-      materia: (MATERIA[quien] ?? '').split(' · ')[0],
+      materia: yo?.materia ?? '',
     });
     setEligiendo(franja);
   };
 
   return (
     <View>
+      {profes.length === 0 && <Text style={s.vacio}>No hay profesorado. Añádelo en «03 · Personal».</Text>}
       <Mono style={{ marginBottom: 10 }}>// Elige a un profesor</Mono>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
-        {PROFESORADO.map((id) => {
-          const p = persona(id)!;
+        {profes.map((p) => {
+          const id = p.id;
           const on = id === quien;
           return (
             <Pressable
@@ -208,7 +408,9 @@ function Horarios({ ancho }: { ancho: boolean }) {
               <Avatar id={id} tam={28} activo={on} />
               <View>
                 <Text style={[s.profeNombre, on && { color: color.crema }]}>{p.nombre}</Text>
-                <Text style={[s.profeMateria, on && { color: color.grisClaro }]}>{MATERIA[id]}</Text>
+                <Text style={[s.profeMateria, on && { color: color.grisClaro }]}>
+                  {[p.materia, TURNOS.find((t) => t.id === p.turno)?.nombre].filter(Boolean).join(' · ')}
+                </Text>
               </View>
             </Pressable>
           );
@@ -216,12 +418,13 @@ function Horarios({ ancho }: { ancho: boolean }) {
       </ScrollView>
 
       <View style={[s.horario, cortado(18)]}>
-        {FRANJAS.map((f) => {
-          const h = huecos[f.id];
+        {cfg.franjas.map((f) => {
+          const h = huecos[f.id] ?? 'libre';
           const tipo = esClase(h) ? 'clase' : esLugar(h) ? 'fijo' : h;
+          const fueraTurno = !!yo && yo.turno !== 'ambos' && yo.turno !== f.turno;
           const conflicto = esClase(h) ? choque(f.id, h.espacio) : undefined;
           return (
-            <Animated.View key={`${quien}-${f.id}`} entering={entra(f.id, 60)} layout={recoloca} style={[s.franja, f.recreo && { backgroundColor: '#FAF8F3' }]}>
+            <Animated.View key={`${quien}-${f.id}`} entering={entra(f.id, 60)} layout={recoloca} style={[s.franja, f.recreo && { backgroundColor: '#FAF8F3' }, tipo === 'fuera' && { opacity: 0.55 }]}>
               <View style={[s.franjaFila, !ancho && { flexDirection: 'column', alignItems: 'flex-start' }]}>
                 <View style={{ width: 92 }}>
                   <Text style={s.franjaHora}>{f.inicio}</Text>
@@ -231,6 +434,7 @@ function Horarios({ ancho }: { ancho: boolean }) {
                   <Segmento on={tipo === 'clase'} texto="Clase" onPress={() => (tipo === 'clase' ? setEligiendo(eligiendo === f.id ? null : f.id) : ponerClase(f.id))} />
                   <Segmento on={tipo === 'guardia'} texto="Guardia" onPress={() => cfg.ponerHueco(quien, f.id, 'guardia')} />
                   <Segmento on={tipo === 'libre'} texto="Libre" onPress={() => cfg.ponerHueco(quien, f.id, 'libre')} />
+                  <Segmento on={tipo === 'fuera'} texto="No está" onPress={() => cfg.ponerHueco(quien, f.id, 'fuera')} />
                   {esLugar(h) && <Segmento on texto={h.motivo} onPress={() => {}} />}
                 </View>
                 {esClase(h) && (
@@ -255,6 +459,9 @@ function Horarios({ ancho }: { ancho: boolean }) {
                   </View>
                 )}
               </View>
+              {fueraTurno && tipo !== 'fuera' && (
+                <Text style={s.avisoTurno}>Esta hora no es de su turno ({TURNOS.find((t) => t.id === yo?.turno)?.nombre.toLowerCase()}).</Text>
+              )}
               {conflicto && esClase(h) && (
                 <Text style={s.conflicto}>
                   Choque: coincide con {persona(conflicto)?.nombre}: a esta hora ya da clase en {cfg.nombreEspacio(h.espacio)}.
@@ -304,6 +511,22 @@ function Segmento({ on, texto, onPress }: { on: boolean; texto: string; onPress:
 }
 
 const s = StyleSheet.create({
+  plantillas: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  plantilla: { flexGrow: 1, flexBasis: 220, backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 16 },
+  plantillaOn: { backgroundColor: color.tinta, borderColor: color.tinta },
+  plantillaNombre: { fontFamily: font.display, fontSize: 17, textTransform: 'uppercase', color: color.tinta },
+  plantillaDetalle: { fontFamily: font.ui, fontSize: 13, color: color.gris, marginTop: 4 },
+  plantillaMarca: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: color.lima, marginTop: 10 },
+  hora: { fontFamily: font.monoBold, fontSize: 15, color: color.tinta, width: 64, borderBottomWidth: 1.5, borderBottomColor: color.borde, paddingVertical: 6, textAlign: 'center', outlineStyle: 'none' } as never,
+  horaMal: { borderBottomColor: color.rojo, color: color.rojo },
+  guion: { fontFamily: font.mono, color: color.gris },
+  persona: { borderTopWidth: 1, borderTopColor: color.borde, paddingVertical: 10 },
+  personaArriba: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  personaAbajo: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: 42 },
+  separador: { width: 1, height: 18, backgroundColor: color.borde, marginHorizontal: 6 },
+  turnoOn: { backgroundColor: color.lima, borderColor: color.lima },
+  baja: { fontFamily: font.mono, fontSize: 11, textTransform: 'uppercase', color: color.gris, textDecorationLine: 'underline' },
+  avisoTurno: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, marginTop: 6 },
   intro: { fontFamily: font.ui, fontSize: 16, lineHeight: 24, color: color.gris, marginTop: 16, maxWidth: 640 },
   pestanas: { flexDirection: 'row', gap: 6, marginTop: 26, marginBottom: 18, flexWrap: 'wrap' },
   pestana: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: '#E7E3D8' },

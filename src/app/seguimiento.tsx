@@ -5,7 +5,8 @@ import { StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-na
 import Animated, { FadeOutUp } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
-import { DIRECTOR, EQUIPO, nombreCompleto, persona } from '../data/equipo';
+import { activos, DIRECTOR, nombreCompleto, persona } from '../data/equipo';
+import { useCentro } from '../lib/centro';
 import { entra, recoloca, sale } from '../lib/motion';
 import { Estado, Tarea, useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
@@ -26,9 +27,10 @@ export default function Seguimiento() {
   const cargaAlLado = width >= 1500;
   const columnasEnFila = width >= 1100;
   const { tareas, carga, reiniciar } = useVelt();
+  useCentro(); // se vuelve a pintar si cambia el personal
   const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha');
   const n = (e: Estado) => tareas.filter((t) => t.estado === e).length;
-  const equipo = EQUIPO.filter((p) => p.id !== DIRECTOR.id).sort((a, b) => (carga[b.id] ?? 0) - (carga[a.id] ?? 0));
+  const equipo = activos().filter((p) => p.id !== DIRECTOR.id).sort((a, b) => (carga[b.id] ?? 0) - (carga[a.id] ?? 0));
   const maxCarga = Math.max(CARGA_ALTA, ...equipo.map((p) => carga[p.id] ?? 0));
 
   return (

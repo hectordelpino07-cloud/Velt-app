@@ -1,24 +1,32 @@
-// Estado del centro: plantas, espacios, horarios, material, reservas y las
-// ausencias del día. Se guarda en el navegador como las tareas, así nada se
+// Estado del centro: jornada (franjas), personal, plantas, espacios, horarios,
+// material, reservas y las ausencias del día. Se guarda en el navegador como las tareas, así nada se
 // pierde al cambiar de pantalla. Cuando haya servidor, solo cambia este archivo.
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import {
   Espacio,
   ESPACIOS_INICIALES,
-  FRANJAS,
+  Franja,
+  FRANJAS_INICIALES,
   esClase,
   esLugar,
   Hueco,
   HORARIO_INICIAL,
+  JORNADAS,
+  Lugar,
   Material,
   MATERIALES_INICIALES,
   Planta,
   PLANTAS_INICIALES,
   RESERVAS_INICIALES,
+  sumarMinutos,
   TipoEspacio,
+  TurnoFranja,
 } from '../data/centro';
+import { daClase, EQUIPO_INICIAL, Persona, sincronizarEquipo } from '../data/equipo';
 
 type Datos = {
+  franjas: Franja[];
+  personal: Persona[];
   plantas: Planta[];
   espacios: Espacio[];
   horario: Record<string, Hueco[]>;
@@ -29,6 +37,8 @@ type Datos = {
 };
 
 const INICIAL: Datos = {
+  franjas: FRANJAS_INICIALES,
+  personal: EQUIPO_INICIAL,
   plantas: PLANTAS_INICIALES,
   espacios: ESPACIOS_INICIALES,
   horario: HORARIO_INICIAL,
@@ -38,7 +48,7 @@ const INICIAL: Datos = {
   cubiertas: {},
 };
 
-const CLAVE = 'velt.centro.v1';
+const CLAVE = 'velt.centro.v2';
 const almacen = typeof localStorage !== 'undefined' ? localStorage : null;
 
 function cargar(): Datos {
@@ -50,10 +60,52 @@ function cargar(): Datos {
   }
 }
 
+// Qué hace por defecto una persona en una franja: fuera si no es su turno,
+// en su puesto si no da clase, y libre si es profesorado
+const LUGAR_POR_ROL: Record<string, Lugar> = {
+  Conserjería: { lugar: 'CON', motivo: 'Conserjería' },
+  Secretaría: { lugar: 'SEC', motivo: 'Secretaría' },
+  Dirección: { lugar: 'DIR', motivo: 'Dirección' },
+};
+const enTurno = (p: Persona, f: Franja) => p.turno === 'ambos' || p.turno === f.turno;
+function huecoPorDefecto(p: Persona, f: Franja): Hueco {
+  if (!enTurno(p, f)) return 'fuera';
+  if (!daClase(p)) return LUGAR_POR_ROL[p.rol] ?? 'libre';
+  return 'libre';
+}
+
+// Al cambiar las franjas, cada persona conserva lo que tenía en las horas que
+// siguen existiendo (misma hora de inicio y turno) y el resto se rellena solo
+function reajustarHorario(x: Datos, nuevas: Franja[]): Record<string, Hueco[]> {
+  return Object.fromEntries(
+    x.personal.map((p) => {
+      const antes = x.horario[p.id] ?? [];
+      return [
+        p.id,
+        nuevas.map((f) => {
+          const i = x.franjas.findIndex((o) => o.inicio === f.inicio && o.turno === f.turno);
+          return i >= 0 && antes[i] !== undefined && enTurno(p, f) ? antes[i] : huecoPorDefecto(p, f);
+        }),
+      ];
+    }),
+  );
+}
+
+const numerar = (fs: Franja[]) => fs.map((f, id) => ({ ...f, id }));
+
 const nuevoId = (p: string) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 type Ctx = Datos & {
   espacio: (id: string) => Espacio | undefined;
+  // Jornada
+  ponerJornada: (id: string) => void;
+  addFranja: (turno: TurnoFranja) => void;
+  editarFranja: (i: number, cambios: Partial<Franja>) => void;
+  quitarFranja: (i: number) => void;
+  // Personal
+  addPersona: () => void;
+  editarPersona: (id: string, cambios: Partial<Persona>) => void;
+  darDeBaja: (id: string, baja: boolean) => void;
   nombreEspacio: (id: string | null) => string;
   // Plantas y espacios
   addPlanta: () => void;
@@ -90,6 +142,9 @@ export function CentroProvider({ children }: { children: ReactNode }) {
     }
   }, [d]);
 
+  // El resto de la app consulta el personal en data/equipo.ts
+  sincronizarEquipo(d.personal);
+
   const valor = useMemo<Ctx>(() => {
     const porId = Object.fromEntries(d.espacios.map((e) => [e.id, e]));
     const cambiar = (f: (x: Datos) => Partial<Datos>) => setD((x) => ({ ...x, ...f(x) }));
@@ -104,6 +159,71 @@ export function CentroProvider({ children }: { children: ReactNode }) {
       ...d,
       espacio: (id) => porId[id],
       nombreEspacio: (id) => (id ? porId[id]?.nombre ?? 'Espacio borrado' : 'Almacén'),
+
+      ponerJornada: (id) =>
+        cambiar((x) => {
+          const j = JORNADAS.find((q) => q.id === id);
+          if (!j) return {};
+          return { franjas: j.franjas, horario: reajustarHorario(x, j.franjas), reservas: {}, cubiertas: {} };
+        }),
+      addFranja: (turno) =>
+        cambiar((x) => {
+          const delTurno = x.franjas.filter((f) => f.turno === turno);
+          const ultima = delTurno[delTurno.length - 1];
+          const inicio = ultima ? ultima.fin : turno === 'manana' ? '08:00' : '15:30';
+          const nueva: Franja = {
+            id: 0,
+            inicio,
+            fin: sumarMinutos(inicio, 60),
+            nombre: `${delTurno.filter((f) => !f.recreo).length + 1}.ª ${turno === 'manana' ? 'hora' : 'tarde'}`,
+            turno,
+          };
+          const pos = ultima ? x.franjas.indexOf(ultima) + 1 : turno === 'manana' ? 0 : x.franjas.length;
+          const nuevas = numerar([...x.franjas.slice(0, pos), nueva, ...x.franjas.slice(pos)]);
+          return { franjas: nuevas, horario: reajustarHorario(x, nuevas), reservas: {}, cubiertas: {} };
+        }),
+      editarFranja: (i, cambios) =>
+        cambiar((x) => {
+          const nuevas = x.franjas.map((f) => (f.id === i ? { ...f, ...cambios } : f));
+          // Cambiar la hora no mueve las clases: el horario se queda igual
+          return { franjas: nuevas };
+        }),
+      quitarFranja: (i) =>
+        cambiar((x) => ({
+          franjas: numerar(x.franjas.filter((f) => f.id !== i)),
+          horario: Object.fromEntries(Object.entries(x.horario).map(([p, hs]) => [p, hs.filter((_, k) => k !== i)])),
+          reservas: {},
+          cubiertas: {},
+        })),
+
+      addPersona: () =>
+        cambiar((x) => {
+          const nueva: Persona = { id: nuevoId('p'), nombre: 'Nuevo', apellido: 'profesor', rol: 'Profesorado', turno: 'manana', materia: '' };
+          return { personal: [...x.personal, nueva], horario: { ...x.horario, [nueva.id]: x.franjas.map((f) => huecoPorDefecto(nueva, f)) } };
+        }),
+      editarPersona: (id, cambios) =>
+        cambiar((x) => {
+          const personal = x.personal.map((p) => (p.id === id ? { ...p, ...cambios } : p));
+          if (!cambios.turno && !cambios.rol) return { personal };
+          // Si cambia el turno o el puesto, se ajustan las horas que ya no le tocan
+          const p = personal.find((q) => q.id === id)!;
+          const antes = x.horario[id] ?? [];
+          const horario = {
+            ...x.horario,
+            [id]: x.franjas.map((f, k) => {
+              const h = antes[k];
+              if (!enTurno(p, f)) return 'fuera' as Hueco;
+              if (h === undefined || h === 'fuera' || (cambios.rol && !daClase(p))) return huecoPorDefecto(p, f);
+              return h;
+            }),
+          };
+          return { personal, horario };
+        }),
+      darDeBaja: (id, baja) =>
+        cambiar((x) => ({
+          personal: x.personal.map((p) => (p.id === id ? { ...p, baja } : p)),
+          ausentes: x.ausentes.filter((a) => a !== id),
+        })),
 
       addPlanta: () => cambiar((x) => ({ plantas: [...x.plantas, { id: nuevoId('pl'), nombre: `Planta ${x.plantas.length}` }] })),
       renombrarPlanta: (id, nombre) => cambiar((x) => ({ plantas: x.plantas.map((p) => (p.id === id ? { ...p, nombre } : p)) })),
@@ -154,7 +274,8 @@ export function CentroProvider({ children }: { children: ReactNode }) {
 
       ponerHueco: (personaId, franja, hueco) =>
         cambiar((x) => {
-          const hs = [...(x.horario[personaId] ?? FRANJAS.map(() => 'libre' as Hueco))];
+          const p = x.personal.find((q) => q.id === personaId);
+          const hs = [...(x.horario[personaId] ?? x.franjas.map((f) => (p ? huecoPorDefecto(p, f) : 'libre')))];
           hs[franja] = hueco;
           return { horario: { ...x.horario, [personaId]: hs } };
         }),

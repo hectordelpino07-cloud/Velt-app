@@ -5,7 +5,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions
 import Animated, { SlideOutRight, ZoomIn } from 'react-native-reanimated';
 import { Deslizar, TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
-import { DIRECTOR, EQUIPO, persona } from '../data/equipo';
+import { activos, DIRECTOR, persona } from '../data/equipo';
+import { useCentro } from '../lib/centro';
 import { entra, recoloca, vibra } from '../lib/motion';
 import { Tarea, useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
@@ -15,6 +16,7 @@ export default function MisTareas() {
   const { width } = useWindowDimensions();
   const ancho = width >= ANCHO_ESCRITORIO;
   const { tareas } = useVelt();
+  useCentro(); // se vuelve a pintar si cambia el personal
   const [yo, setYo] = useState('carmen');
   const p = persona(yo)!;
   const todas = tareas.filter((t) => t.responsableId === yo);
@@ -28,7 +30,7 @@ export default function MisTareas() {
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 12 }}>// Ver como · prueba sin inicio de sesión</Mono>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
-          {EQUIPO.filter((x) => x.id !== DIRECTOR.id).map((x) => {
+          {activos().filter((x) => x.id !== DIRECTOR.id).map((x) => {
             const on = x.id === yo;
             return (
               <Pressable key={x.id} onPress={() => setYo(x.id)} accessibilityRole="button" style={[s.persona, on && s.personaOn, cortado(8)]}>

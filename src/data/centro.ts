@@ -2,17 +2,41 @@
 // partida: dirección puede cambiar plantas, aulas, horarios y material desde
 // «Configurar centro» y «Material», y se guarda en `lib/centro.tsx`.
 
-export type Franja = { id: number; inicio: string; fin: string; nombre: string; recreo?: boolean };
+export type TurnoFranja = 'manana' | 'tarde';
+// `id` es siempre la posición en la lista (lib/centro.tsx la recalcula al cambiar la jornada)
+export type Franja = { id: number; inicio: string; fin: string; nombre: string; turno: TurnoFranja; recreo?: boolean };
 
-export const FRANJAS: Franja[] = [
-  { id: 0, inicio: '08:15', fin: '09:15', nombre: '1.ª hora' },
-  { id: 1, inicio: '09:15', fin: '10:15', nombre: '2.ª hora' },
-  { id: 2, inicio: '10:15', fin: '11:15', nombre: '3.ª hora' },
-  { id: 3, inicio: '11:15', fin: '11:45', nombre: 'Recreo', recreo: true },
-  { id: 4, inicio: '11:45', fin: '12:45', nombre: '4.ª hora' },
-  { id: 5, inicio: '12:45', fin: '13:45', nombre: '5.ª hora' },
-  { id: 6, inicio: '13:45', fin: '14:45', nombre: '6.ª hora' },
+const fr = (inicio: string, fin: string, nombre: string, turno: TurnoFranja, recreo?: boolean) => ({ inicio, fin, nombre, turno, recreo });
+
+const MANANA = [
+  fr('08:15', '09:15', '1.ª hora', 'manana'),
+  fr('09:15', '10:15', '2.ª hora', 'manana'),
+  fr('10:15', '11:15', '3.ª hora', 'manana'),
+  fr('11:15', '11:45', 'Recreo', 'manana', true),
+  fr('11:45', '12:45', '4.ª hora', 'manana'),
+  fr('12:45', '13:45', '5.ª hora', 'manana'),
+  fr('13:45', '14:45', '6.ª hora', 'manana'),
 ];
+
+const TARDE = [
+  fr('15:30', '16:30', '1.ª tarde', 'tarde'),
+  fr('16:30', '17:30', '2.ª tarde', 'tarde'),
+  fr('17:30', '18:30', '3.ª tarde', 'tarde'),
+  fr('18:30', '19:00', 'Recreo', 'tarde', true),
+  fr('19:00', '20:00', '4.ª tarde', 'tarde'),
+  fr('20:00', '21:00', '5.ª tarde', 'tarde'),
+];
+
+export const numerar = (xs: Omit<Franja, 'id'>[]): Franja[] => xs.map((x, id) => ({ ...x, id }));
+
+// Plantillas de jornada para empezar rápido; luego cada hora se puede editar
+export const JORNADAS: { id: string; nombre: string; detalle: string; franjas: Franja[] }[] = [
+  { id: 'manana', nombre: 'Solo de mañana', detalle: '08:15 – 14:45 · 6 horas y recreo', franjas: numerar(MANANA) },
+  { id: 'tarde', nombre: 'Solo de tarde', detalle: '15:30 – 21:00 · 5 horas y recreo', franjas: numerar(TARDE) },
+  { id: 'partida', nombre: 'Mañana y tarde', detalle: 'Dos turnos, con profesorado de cada uno', franjas: numerar([...MANANA, ...TARDE]) },
+];
+
+export const FRANJAS_INICIALES = JORNADAS[0].franjas;
 
 export type TipoEspacio = 'aula' | 'especial' | 'oficina' | 'exterior';
 
@@ -27,10 +51,10 @@ export type Espacio = { id: string; nombre: string; tipo: TipoEspacio; planta: s
 export type Planta = { id: string; nombre: string };
 
 // Lo que hace cada persona en cada franja (índice = franja):
-// clase { espacio, grupo, materia } · 'guardia' · 'libre' · { lugar } fijo
+// clase { espacio, grupo, materia } · 'guardia' · 'libre' · 'fuera' (no está en el centro) · { lugar } fijo
 export type Clase = { espacio: string; grupo: string; materia: string };
 export type Lugar = { lugar: string; motivo: string };
-export type Hueco = Clase | 'guardia' | 'libre' | Lugar;
+export type Hueco = Clase | 'guardia' | 'libre' | 'fuera' | Lugar;
 
 export type TipoMaterial = 'proyector' | 'pizarra' | 'portatil' | 'audio' | 'laboratorio' | 'otro';
 
@@ -82,17 +106,6 @@ export const ESPACIOS_INICIALES: Espacio[] = [
   { id: 'PISTA', nombre: 'Pista deportiva', tipo: 'exterior', planta: 'ex' },
 ];
 
-export const MATERIA: Record<string, string> = {
-  raul: 'Ciencias',
-  marta: 'Matemáticas',
-  andres: 'Ed. Física',
-  lucia: 'Lengua e Inglés',
-  ines: 'Historia · Jefatura',
-};
-
-// Personas con horario de clases (las demás tienen un sitio fijo)
-export const PROFESORADO = ['ines', 'raul', 'marta', 'andres', 'lucia'];
-
 const c = (espacio: string, grupo: string, materia: string): Clase => ({ espacio, grupo, materia });
 const jefatura = { lugar: 'DIR', motivo: 'Jefatura de estudios' };
 
@@ -143,10 +156,16 @@ export const MATERIALES_INICIALES: Material[] = [
 export const esClase = (h: Hueco | undefined): h is Clase => typeof h === 'object' && h !== null && 'grupo' in h;
 export const esLugar = (h: Hueco | undefined): h is Lugar => typeof h === 'object' && h !== null && 'lugar' in h;
 
-// Franja según la hora del reloj; fuera del horario escolar, la 2.ª hora
-export function franjaActual(d = new Date()): { franja: number; real: boolean } {
+// Franja según la hora del reloj; fuera del horario escolar, la segunda
+export function franjaActual(franjas: Franja[], d = new Date()): { franja: number; real: boolean } {
   const min = d.getHours() * 60 + d.getMinutes();
   const aMin = (h: string) => parseInt(h.slice(0, 2), 10) * 60 + parseInt(h.slice(3), 10);
-  const f = FRANJAS.find((x) => min >= aMin(x.inicio) && min < aMin(x.fin));
-  return f ? { franja: f.id, real: true } : { franja: 1, real: false };
+  const f = franjas.find((x) => min >= aMin(x.inicio) && min < aMin(x.fin));
+  return f ? { franja: f.id, real: true } : { franja: Math.min(1, franjas.length - 1), real: false };
+}
+
+// Suma minutos a una hora «HH:MM»
+export function sumarMinutos(hora: string, minutos: number) {
+  const t = parseInt(hora.slice(0, 2), 10) * 60 + parseInt(hora.slice(3), 10) + minutos;
+  return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }

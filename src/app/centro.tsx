@@ -8,8 +8,8 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Contador, cortado, Mono } from '../components/ui';
-import { Clase, esClase, esLugar, FRANJAS, franjaActual, MATERIA, TIPOS_MATERIAL } from '../data/centro';
-import { CENTRO, EQUIPO, persona } from '../data/equipo';
+import { Clase, esClase, esLugar, franjaActual, TIPOS_MATERIAL } from '../data/centro';
+import { activos, CENTRO, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { entra, recoloca, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
@@ -38,10 +38,13 @@ export default function Centro() {
   const { enviar } = useVelt();
   const toast = useToast();
   const cfg = useCentro();
-  const { plantas, espacios, horario, materiales, reservas, ausentes, cubiertas, espacio, nombreEspacio } = cfg;
+  const { franjas: FRANJAS, plantas, espacios, horario, materiales, reservas, ausentes, cubiertas, espacio, nombreEspacio } = cfg;
+  const EQUIPO = activos();
 
-  const ahora = useMemo(() => franjaActual(), []);
-  const [franja, setFranja] = useState(ahora.franja);
+  const ahora = useMemo(() => franjaActual(FRANJAS), [FRANJAS]);
+  const [franjaElegida, setFranja] = useState(ahora.franja);
+  // Si se borran franjas en «Configurar centro», no salirse de la lista
+  const franja = Math.min(franjaElegida, FRANJAS.length - 1);
   const [plantaElegida, setPlanta] = useState(plantas[0]?.id ?? '');
   const planta = plantas.some((x) => x.id === plantaElegida) ? plantaElegida : plantas[0]?.id ?? '';
   const [reproduciendo, setReproduciendo] = useState(false);
@@ -71,12 +74,13 @@ export default function Centro() {
 
   // Dónde está cada persona en la franja elegida
   const ubicaciones = useMemo(() => {
-    const r: Record<string, { espacio: string | null; texto: string; tipo: 'clase' | 'guardia' | 'libre' | 'fijo' | 'ausente' | 'cubre' }> = {};
+    const r: Record<string, { espacio: string | null; texto: string; tipo: 'clase' | 'guardia' | 'libre' | 'fijo' | 'ausente' | 'cubre' | 'fuera' }> = {};
     const sala = espacio('SALA') ? 'SALA' : null;
     for (const p of EQUIPO) {
       const h = horario[p.id]?.[franja];
       const cubre = Object.entries(cubiertas).find(([k, quien]) => quien === p.id && k.startsWith(`${franja}:`));
       if (ausentes.includes(p.id)) r[p.id] = { espacio: null, texto: 'Ausente hoy', tipo: 'ausente' };
+      else if (h === 'fuera') r[p.id] = { espacio: null, texto: 'Fuera de su turno', tipo: 'fuera' };
       else if (cubre) r[p.id] = { espacio: cubre[0].split(':')[1], texto: `Cubre ${nombreEspacio(cubre[0].split(':')[1])}`, tipo: 'cubre' };
       else if (!h) r[p.id] = { espacio: null, texto: '—', tipo: 'libre' };
       else if (esClase(h))
@@ -86,7 +90,8 @@ export default function Centro() {
       else r[p.id] = { espacio: sala, texto: 'Sala de profesores', tipo: 'libre' };
     }
     return r;
-  }, [franja, ausentes, cubiertas, horario, espacio, nombreEspacio]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [franja, ausentes, cubiertas, horario, espacio, nombreEspacio, cfg.personal]);
 
   // Estado de cada espacio en la franja elegida
   const celdas = useMemo(() => {
@@ -132,7 +137,7 @@ export default function Centro() {
     }
     return r;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [franja, ubicaciones, reservas, ausentes, cubiertas, espacios, materiales, horario]);
+  }, [franja, ubicaciones, reservas, ausentes, cubiertas, espacios, materiales, horario, FRANJAS]);
 
   const aulas = espacios.filter((e) => (e.tipo === 'aula' || e.tipo === 'especial') && !e.cerrado);
   const ocupadas = aulas.filter((e) => ['ocupada', 'sinprofe', 'cubierta', 'reservada'].includes(celdas[e.id].estado)).length;
@@ -189,6 +194,7 @@ export default function Centro() {
   };
 
   const f = FRANJAS[franja];
+  const dosTurnos = FRANJAS.some((x) => x.turno === 'tarde') && FRANJAS.some((x) => x.turno === 'manana');
   const enPlanta = espacios.filter((e) => e.planta === planta);
   const filas = Array.from({ length: Math.ceil(enPlanta.length / POR_FILA) }, (_, i) => enPlanta.slice(i * POR_FILA, (i + 1) * POR_FILA).map((e) => e.id));
 
@@ -204,11 +210,18 @@ export default function Centro() {
       {/* Franjas: la línea del día. Al tocar una, el centro se mueve. */}
       <Animated.View entering={entra(2, 150)} style={{ marginTop: 26 }}>
         <View style={s.franjas}>
-          {FRANJAS.map((x) => {
+          {FRANJAS.map((x, k) => {
             const on = x.id === franja;
+            // Con jornada partida, una etiqueta separa la mañana de la tarde
+            const cambiaTurno = dosTurnos && (k === 0 || FRANJAS[k - 1].turno !== x.turno);
             return (
+              <View key={x.id} style={{ flexDirection: 'row', alignItems: 'stretch', gap: 6 }}>
+              {cambiaTurno && (
+                <View style={[s.turno, x.turno === 'tarde' && { backgroundColor: color.cobalto }]}>
+                  <Text style={s.turnoTexto}>{x.turno === 'manana' ? 'Mañana' : 'Tarde'}</Text>
+                </View>
+              )}
               <Pressable
-                key={x.id}
                 onPress={() => {
                   setReproduciendo(false);
                   setFranja(x.id);
@@ -221,6 +234,7 @@ export default function Centro() {
                 <Text style={[s.franjaNombre, on && { color: color.grisClaro }]}>{x.nombre}</Text>
                 {x.id === ahora.franja && ahora.real && <View style={s.ahoraPunto} />}
               </Pressable>
+              </View>
             );
           })}
         </View>
@@ -403,7 +417,8 @@ export default function Centro() {
               <Text style={s.cabTexto}>Dónde está el personal</Text>
               <Mono>{f.inicio}</Mono>
             </View>
-            {EQUIPO.map((x, i) => {
+            {/* Quien está fuera de su turno va al final, en gris */}
+            {[...EQUIPO].sort((a, b) => Number(ubicaciones[a.id].tipo === 'fuera') - Number(ubicaciones[b.id].tipo === 'fuera')).map((x, i) => {
               const u = ubicaciones[x.id];
               const tono =
                 u.tipo === 'ausente'
@@ -419,20 +434,20 @@ export default function Centro() {
                     onPress={() => setFoco((fo) => (fo === x.id ? null : x.id))}
                     accessibilityRole="button"
                     accessibilityLabel={`Ver a ${x.nombre} en el mapa`}
-                    style={[s.persona, foco === x.id && { backgroundColor: color.blanco }]}
+                    style={[s.persona, foco === x.id && { backgroundColor: color.blanco }, u.tipo === 'fuera' && { opacity: 0.45 }]}
                   >
                     <Avatar id={x.id} tam={32} activo={foco === x.id} />
                     <View style={{ flex: 1 }}>
                       <Text style={[s.personaNombre, u.tipo === 'ausente' && { textDecorationLine: 'line-through', color: color.gris }]}>
                         {x.nombre} {x.apellido}
                       </Text>
-                      <Text style={s.personaRol}>{MATERIA[x.id] ?? x.rol}</Text>
+                      <Text style={s.personaRol}>{x.materia || x.rol}</Text>
                     </View>
                     <Animated.View key={`${x.id}-${u.texto}`} entering={ZoomIn.duration(240)}>
                       <Text style={[s.lugar, { backgroundColor: tono.bg, color: tono.tx }]}>{u.texto}</Text>
                     </Animated.View>
                   </Pressable>
-                  {MATERIA[x.id] && (
+                  {(x.rol === 'Profesorado' || x.rol === 'Jefatura') && (
                     <Pressable onPress={() => marcarAusente(x.id)} accessibilityRole="button" style={s.ausenteBoton}>
                       {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
                         <Text style={[s.ausenteTexto, (hovered || ausentes.includes(x.id)) && { color: color.rojo }]}>
@@ -486,6 +501,8 @@ function CeldaMapa({ id, c, franja, orden, foco, movil }: { id: string; c: Celda
 }
 
 const s = StyleSheet.create({
+  turno: { backgroundColor: color.tinta, paddingHorizontal: 8, justifyContent: 'center' },
+  turnoTexto: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: color.lima },
   atajos: { flexDirection: 'row', gap: 8, marginLeft: 'auto' },
   vacioPlanta: { fontFamily: font.ui, fontSize: 14, color: color.gris, paddingVertical: 20 },
   enlace: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.lima, textDecorationLine: 'underline' },

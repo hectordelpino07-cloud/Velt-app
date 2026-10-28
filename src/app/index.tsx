@@ -6,7 +6,7 @@ import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Contador, cortado, Mono } from '../components/ui';
 import { esClase } from '../data/centro';
-import { CENTRO, DIRECTOR, EQUIPO, persona } from '../data/equipo';
+import { activos, CENTRO, DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { entra, entraLado } from '../lib/motion';
 import { useVelt } from '../lib/store';
@@ -37,7 +37,7 @@ export default function Hoy() {
   const confirmadas = tareas.filter((t) => t.estado === 'confirmada').length;
   const hechas = tareas.filter((t) => t.estado === 'hecha').length;
   const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha').length;
-  const equipo = EQUIPO.filter((p) => p.id !== DIRECTOR.id);
+  const equipo = activos().filter((p) => p.id !== DIRECTOR.id);
   const libres = equipo.filter((p) => !carga[p.id]).length;
   const proximas = [...activas]
     .sort((a, b) => ORDEN.indexOf(a.dia ?? 'Dom') - ORDEN.indexOf(b.dia ?? 'Dom') || (a.hora ?? '99').localeCompare(b.hora ?? '99'))

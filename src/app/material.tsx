@@ -6,7 +6,7 @@ import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Contador, cortado, Mono } from '../components/ui';
 import { Material, TipoMaterial, TIPOS_MATERIAL } from '../data/centro';
-import { CENTRO, DIRECTOR, EQUIPO, persona } from '../data/equipo';
+import { activos, CENTRO, DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { entra, recoloca, sale, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
@@ -190,7 +190,7 @@ function FilaMaterial({ m }: { m: Material }) {
       {panel === 'prestar' && (
         <Animated.View entering={entra(0)} style={s.elegir}>
           <Mono style={{ width: '100%', marginBottom: 4 }}>// ¿A quién se lo prestas?</Mono>
-          {EQUIPO.filter((p) => p.id !== DIRECTOR.id).map((p) => (
+          {activos().filter((p) => p.id !== DIRECTOR.id).map((p) => (
             <Pressable
               key={p.id}
               onPress={() => {

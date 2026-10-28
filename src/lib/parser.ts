@@ -6,7 +6,7 @@
 // avise a las familias». Lo que no sabe deducir lo convierte en una pregunta.
 // Más adelante este archivo se puede sustituir por una llamada a un modelo de
 // lenguaje en el servidor, manteniendo los mismos tipos de salida.
-import { EQUIPO, DIRECTOR, Persona } from '../data/equipo';
+import { activos, DIRECTOR, Persona } from '../data/equipo';
 
 export type TareaPropuesta = {
   id: string;
@@ -97,7 +97,7 @@ function sujeto(frag: string): { persona: Persona | null; resto: string; anonimo
   const n = norm(frag);
   const anon = n.match(/^(?:alguien|quien pueda|cualquiera|alguno|alguna)\b\s*/);
   if (anon) return { persona: null, resto: frag.slice(anon[0].length), anonimo: true };
-  for (const p of EQUIPO) {
+  for (const p of activos()) {
     const claves = [p.nombre, ...(p.alias ?? [])].map(norm).sort((a, b) => b.length - a.length);
     for (const c of claves) {
       const m = n.match(new RegExp(`^(?:(?:el|la) )?${c}\\b(?: ${norm(p.apellido)}\\b)?[,:]?\\s*`));
@@ -137,7 +137,7 @@ function tituloDe(resto: string): { titulo: string; nota?: string } {
 // Personas que la idea pide no cargar: «Raúl ya va justo», «menos Marta»…
 function buscarExcluidos(texto: string): string[] {
   const n = norm(texto);
-  return EQUIPO.filter((p) => {
+  return activos().filter((p) => {
     const c = norm(p.nombre);
     return (
       new RegExp(`\\b${c}\\b (?:ya )?(?:va (?:muy )?justo|va (?:muy )?justa|no puede|esta de baja|no esta|no viene|falta|esta (?:muy )?liad[oa]|tiene mucho)`).test(n) ||
@@ -256,7 +256,7 @@ function candidatos(titulo: string, excluidos: string[], carga: Record<string, n
       : /horario|cuadrante/.test(t)
         ? 'ines'
         : null;
-  return EQUIPO.filter((p) => p.id !== DIRECTOR.id && !excluidos.includes(p.id))
+  return activos().filter((p) => p.id !== DIRECTOR.id && !excluidos.includes(p.id))
     .map((p) => ({ p, c: carga[p.id] ?? 0 }))
     .sort((a, b) => (a.p.id === pista ? -1 : b.p.id === pista ? 1 : a.c - b.c))
     .slice(0, 4)
