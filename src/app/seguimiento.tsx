@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeOutUp } from 'react-native-reanimated';
-import { Avatar, Barra, Boton, Contador, Etiqueta, Mono, Panel, Titular } from '../components/ui';
+import { TitularRevela } from '../components/motion';
+import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
 import { DIRECTOR, EQUIPO, nombreCompleto, persona } from '../data/equipo';
 import { entra, recoloca, sale } from '../lib/motion';
 import { Estado, Tarea, useVelt } from '../lib/store';
@@ -35,13 +36,11 @@ export default function Seguimiento() {
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 12 }}>// Seguimiento · en tiempo real</Mono>
       </Animated.View>
-      <Animated.View entering={entra(1)}>
-        <Titular tam={ancho ? 68 : 38} style={{ marginBottom: 28 }}>
-          Quién tiene{'\n'}qué entre manos.
-        </Titular>
-      </Animated.View>
+      <View style={{ marginBottom: 28 }}>
+        <TitularRevela texto={'Quién tiene\nqué entre manos.'} tam={ancho ? 68 : 38} />
+      </View>
 
-      <Animated.View entering={entra(2)} style={s.resumen}>
+      <Animated.View entering={entra(2)} style={[s.resumen, cortado(24)]}>
         <View style={s.cifras}>
           <Cifra n={tareas.length} l="Tareas" />
           <Cifra n={n('pendiente')} l="Sin confirmar" />
@@ -49,12 +48,13 @@ export default function Seguimiento() {
           <Cifra n={n('hecha')} l="Hechas" azul />
         </View>
         <Barra
-          alto={12}
+          alto={10}
+          vacio="#232838"
           total={tareas.length}
           tramos={[
             { valor: n('hecha'), color: color.cobalto },
             { valor: n('confirmada'), color: color.lima },
-            { valor: n('pendiente'), color: '#C9C3B4' },
+            { valor: n('pendiente'), color: '#4A5068' },
           ]}
         />
       </Animated.View>
@@ -130,7 +130,7 @@ export default function Seguimiento() {
 function Cifra({ n, l, azul }: { n: number; l: string; azul?: boolean }) {
   return (
     <View style={{ flex: 1 }}>
-      <Contador valor={n} style={[s.cifraN, azul && { color: color.cobalto }]} />
+      <Contador valor={n} style={[s.cifraN, azul && { color: color.lima }]} />
       <Text style={s.cifraL}>{l}</Text>
     </View>
   );
@@ -194,10 +194,10 @@ function Fila({ t }: { t: Tarea }) {
 }
 
 const s = StyleSheet.create({
-  resumen: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 20, gap: 16 },
+  resumen: { backgroundColor: color.tinta, padding: 26, gap: 18 },
   cifras: { flexDirection: 'row', gap: 8 },
-  cifraN: { fontFamily: font.display, fontSize: 36, letterSpacing: -1, color: color.tinta },
-  cifraL: { fontFamily: font.ui, fontSize: 12, color: color.gris, marginTop: 2 },
+  cifraN: { fontFamily: font.display, fontSize: 52, letterSpacing: -2, color: color.crema },
+  cifraL: { fontFamily: font.ui, fontSize: 13, color: color.grisClaro, marginTop: 2 },
   bloques: { flexDirection: 'row', gap: 32, marginTop: 36, alignItems: 'flex-start' },
   columnas: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 10, marginBottom: 6 },

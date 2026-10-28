@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { SlideOutRight, ZoomIn } from 'react-native-reanimated';
+import { Deslizar, TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
 import { DIRECTOR, EQUIPO, persona } from '../data/equipo';
 import { entra, recoloca, vibra } from '../lib/motion';
@@ -43,17 +44,18 @@ export default function MisTareas() {
         <Mono style={{ marginTop: 30, marginBottom: 12 }}>
           // {p.rol} · {fecha}
         </Mono>
-        <Titular tam={ancho ? 64 : 40} style={{ marginBottom: 22 }}>
-          Hola, {p.nombre}.
-        </Titular>
+        <View style={{ marginBottom: 22 }}>
+          <TitularRevela texto={`Hola,
+${p.nombre}.`} tam={ancho ? 64 : 44} />
+        </View>
 
-        <View style={s.dia}>
+        <View style={[s.dia, cortado(22)]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 }}>
             <View>
-              <Mono>// Tu día</Mono>
+              <Mono style={{ color: color.lima }}>// Tu día</Mono>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
                 <Contador valor={hechas} style={s.diaN} />
-                <Text style={[s.diaN, { color: color.gris }]}>/{todas.length}</Text>
+                <Text style={[s.diaN, { color: '#4A5068' }]}>/{todas.length}</Text>
               </View>
             </View>
             <Text style={s.diaTexto}>
@@ -61,6 +63,7 @@ export default function MisTareas() {
             </Text>
           </View>
           <Barra
+            vacio="#232838"
             total={todas.length}
             tramos={[
               { valor: hechas, color: color.cobalto },
@@ -70,7 +73,7 @@ export default function MisTareas() {
           <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
             <Leyenda c={color.cobalto} t="Hechas" />
             <Leyenda c={color.lima} t="Confirmadas" />
-            <Leyenda c="#E2DDD0" t="Sin confirmar" />
+            <Leyenda c="#232838" t="Sin confirmar" />
           </View>
         </View>
       </Animated.View>
@@ -99,7 +102,7 @@ function Leyenda({ c, t }: { c: string; t: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <View style={{ width: 9, height: 9, backgroundColor: c }} />
-      <Text style={{ fontFamily: font.ui, fontSize: 12, color: color.gris }}>{t}</Text>
+      <Text style={{ fontFamily: font.ui, fontSize: 12, color: color.grisClaro }}>{t}</Text>
     </View>
   );
 }
@@ -168,33 +171,35 @@ function TarjetaTarea({ t }: { t: Tarea }) {
           </View>
         </Animated.View>
       ) : (
-        <View style={[s.botones, { marginTop: 18 }]}>
+        <View style={{ marginTop: 20, gap: 12 }}>
+          {/* key: el control se reinicia al pasar de «confirmar» a «hecha» */}
           {confirmada ? (
-            <Boton
-              fondo={color.tinta}
-              onPress={() => {
-                vibra('exito');
+            <Deslizar
+              key="hecha"
+              tono={color.cobalto}
+              texto="Desliza cuando esté hecha"
+              textoHecho="Hecha"
+              onConfirmar={() => {
                 cambiarEstado(t.id, 'hecha');
                 toast('¡Hecha! Dirección ya lo ve.', { etiqueta: 'Deshacer', fn: () => cambiarEstado(t.id, 'confirmada') });
               }}
-            >
-              Marcar hecha ✓
-            </Boton>
+            />
           ) : (
-            <Boton
-              fondo={color.tinta}
-              onPress={() => {
-                vibra();
+            <Deslizar
+              key="confirmar"
+              texto="Desliza para confirmar"
+              textoHecho="Confirmada"
+              onConfirmar={() => {
                 cambiarEstado(t.id, 'confirmada');
                 toast(`Confirmada. ${DIRECTOR.nombre} ya sabe que te encargas.`, { etiqueta: 'Deshacer', fn: () => cambiarEstado(t.id, 'pendiente') });
               }}
-            >
-              Confirmar
-            </Boton>
+            />
           )}
-          <Boton variante="blanco" fondo={color.tinta} onPress={() => setEscribiendo(true)}>
-            Tengo una duda
-          </Boton>
+          <Pressable onPress={() => setEscribiendo(true)} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
+            {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+              <Text style={[s.duda, hovered && { color: color.lima }]}>Tengo una duda →</Text>
+            )}
+          </Pressable>
         </View>
       )}
     </Panel>
@@ -205,9 +210,9 @@ const s = StyleSheet.create({
   persona: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingLeft: 6, paddingRight: 14, backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde },
   personaOn: { backgroundColor: color.tinta, borderColor: color.tinta },
   personaNombre: { fontFamily: font.uiMedium, fontSize: 14, color: color.tinta },
-  dia: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 18 },
-  diaN: { fontFamily: font.display, fontSize: 40, letterSpacing: -1, color: color.tinta },
-  diaTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: color.cobalto },
+  dia: { backgroundColor: color.tinta, padding: 22 },
+  diaN: { fontFamily: font.display, fontSize: 64, lineHeight: 66, letterSpacing: -2, color: color.crema },
+  diaTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: color.lima },
   vacio: { fontFamily: font.ui, fontSize: 15, lineHeight: 22, color: color.gris, marginTop: 10, maxWidth: 460 },
   porque: { fontFamily: font.ui, fontSize: 13, lineHeight: 19, color: color.grisClaro, marginTop: 12 },
   sello: { backgroundColor: color.lima, paddingVertical: 4, paddingHorizontal: 8 },
@@ -216,5 +221,6 @@ const s = StyleSheet.create({
   hiloQuien: { fontFamily: font.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.grisClaro },
   hiloTexto: { fontFamily: font.ui, fontSize: 14, lineHeight: 20, color: color.crema, marginTop: 3 },
   botones: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  duda: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.grisClaro, paddingVertical: 6 },
   entrada: { backgroundColor: '#1A1D27', color: color.crema, fontFamily: font.ui, fontSize: 15, padding: 12, outlineStyle: 'none' } as never,
 });

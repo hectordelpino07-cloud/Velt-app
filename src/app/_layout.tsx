@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Intro } from '../components/motion';
 import { Avatar, cortado, Logo, Mono } from '../components/ui';
 import { CENTRO, DIRECTOR, nombreCompleto } from '../data/equipo';
 import { entra } from '../lib/motion';
@@ -15,9 +16,10 @@ import { ToastProvider } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
 const NAV = [
-  { ruta: '/', texto: 'Nueva idea', num: '01' },
-  { ruta: '/seguimiento', texto: 'Seguimiento', num: '02' },
-  { ruta: '/mis-tareas', texto: 'Mis tareas', num: '03' },
+  { ruta: '/', texto: 'Hoy', corto: 'Hoy', num: '01' },
+  { ruta: '/idea', texto: 'Nueva idea', corto: 'Idea', num: '02' },
+  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo', num: '03' },
+  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas', num: '04' },
 ] as const;
 
 const ALTO_NAV = 44;
@@ -41,6 +43,7 @@ export default function Raiz() {
         <ToastProvider>
           <StatusBar style="light" />
           <Marco />
+          <Intro />
         </ToastProvider>
       </VeltProvider>
     </SafeAreaProvider>
@@ -135,7 +138,7 @@ function Marco() {
             return (
               <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta)} accessibilityRole="link" style={s.pestana}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[s.navTexto, { fontSize: 11 }, on && { color: color.blanco }]}>{n.texto}</Text>
+                  <Text style={[s.navTexto, { fontSize: 11 }, on && { color: color.blanco }]}>{n.corto}</Text>
                   {num ? (
                     <View style={[s.insignia, { marginLeft: 0 }]}>
                       <Text style={s.insigniaTexto}>{num}</Text>
