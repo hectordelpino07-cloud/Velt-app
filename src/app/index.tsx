@@ -46,7 +46,7 @@ export default function Hoy() {
 
       {/* Parte del día: el número grande es lo único que hay que mirar */}
       <Animated.View entering={entra(2, 150)} style={[s.parte, cortado(28), { marginTop: 30 }]}>
-        <Text style={[s.fondoHoy, { fontSize: ancho ? 300 : 170 }]} numberOfLines={1}>
+        <Text style={[s.fondoHoy, { fontSize: ancho ? 200 : 130 }]} numberOfLines={1}>
           HOY
         </Text>
         <View style={[s.parteFila, !ancho && { flexDirection: 'column', gap: 26 }]}>
@@ -216,11 +216,11 @@ const s = StyleSheet.create({
   parte: { backgroundColor: color.tinta, padding: 30, overflow: 'hidden' },
   fondoHoy: {
     position: 'absolute',
-    right: -30,
-    bottom: -70,
+    right: -12,
+    bottom: -0.32 * 200,
     fontFamily: font.display,
-    color: '#141827',
-    letterSpacing: -10,
+    color: '#151A2B',
+    letterSpacing: -6,
   },
   parteFila: { flexDirection: 'row', gap: 32, alignItems: 'flex-end' },
   parteN: { fontFamily: font.display, color: color.crema, letterSpacing: -6, marginTop: 6 },

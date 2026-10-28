@@ -189,7 +189,7 @@ const s = StyleSheet.create({
   relleno: { position: 'absolute', left: 0, top: 0, bottom: 0 },
   pistaTexto: {
     position: 'absolute',
-    left: 0,
+    left: 56,
     right: 0,
     textAlign: 'center',
     fontFamily: font.monoBold,
