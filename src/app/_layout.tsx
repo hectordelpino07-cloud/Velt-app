@@ -11,6 +11,7 @@ import { Intro } from '../components/motion';
 import { Avatar, cortado, Logo, Mono } from '../components/ui';
 import { CENTRO, DIRECTOR, nombreCompleto } from '../data/equipo';
 import { entra } from '../lib/motion';
+import { CentroProvider, useCentro } from '../lib/centro';
 import { useVelt, VeltProvider } from '../lib/store';
 import { ToastProvider } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -19,8 +20,9 @@ const NAV = [
   { ruta: '/', texto: 'Hoy', corto: 'Hoy', num: '01' },
   { ruta: '/idea', texto: 'Nueva idea', corto: 'Idea', num: '02' },
   { ruta: '/centro', texto: 'Mapa del centro', corto: 'Centro', num: '03' },
-  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo', num: '04' },
-  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas', num: '05' },
+  { ruta: '/material', texto: 'Material', corto: 'Material', num: '04' },
+  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo', num: '05' },
+  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas', num: '06' },
 ] as const;
 
 const ALTO_NAV = 44;
@@ -41,11 +43,13 @@ export default function Raiz() {
   return (
     <SafeAreaProvider>
       <VeltProvider>
-        <ToastProvider>
-          <StatusBar style="light" />
-          <Marco />
-          <Intro />
-        </ToastProvider>
+        <CentroProvider>
+          <ToastProvider>
+            <StatusBar style="light" />
+            <Marco />
+            <Intro />
+          </ToastProvider>
+        </CentroProvider>
       </VeltProvider>
     </SafeAreaProvider>
   );
@@ -58,16 +62,20 @@ function Marco() {
   const { tareas } = useVelt();
   const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha').length;
   const pendientes = tareas.filter((t) => t.estado === 'pendiente').length;
-  const activo = Math.max(0, NAV.findIndex((n) => n.ruta === ruta));
+  const { materiales, espacios } = useCentro();
+  const averiados = materiales.filter((m) => m.estado === 'averiado').length;
+  const activo = NAV.findIndex((n) => n.ruta === ruta); // -1 en «Configurar centro»
+  const configurando = ruta === '/configurar';
 
   // El recuadro azul de la barra lateral se desliza hasta la sección activa
-  const y = useSharedValue(activo * (ALTO_NAV + HUECO_NAV));
+  const y = useSharedValue(Math.max(0, activo) * (ALTO_NAV + HUECO_NAV));
   useEffect(() => {
-    y.value = withSpring(activo * (ALTO_NAV + HUECO_NAV), { damping: 20, stiffness: 220 });
+    if (activo >= 0) y.value = withSpring(activo * (ALTO_NAV + HUECO_NAV), { damping: 20, stiffness: 220 });
   }, [activo, y]);
   const indicador = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
 
-  const insignia = (r: string) => (r === '/seguimiento' && dudas ? dudas : r === '/mis-tareas' && pendientes ? pendientes : 0);
+  const insignia = (r: string) =>
+    r === '/seguimiento' && dudas ? dudas : r === '/mis-tareas' && pendientes ? pendientes : r === '/material' && averiados ? averiados : 0;
 
   // Cada pantalla entra con un pequeño deslizamiento al cambiar de sección
   const contenido = (
@@ -83,7 +91,7 @@ function Marco() {
           <Logo tam={34} />
           <Mono style={{ color: color.lima, marginTop: 30, marginBottom: 14 }}>// VELT Escolar</Mono>
           <View style={{ gap: HUECO_NAV }}>
-            <Animated.View style={[s.indicador, cortado(9), indicador]} />
+            <Animated.View style={[s.indicador, cortado(9), indicador, activo < 0 && { opacity: 0 }]} />
             {NAV.map((n, i) => {
               const on = i === activo;
               const num = insignia(n.ruta);
@@ -108,7 +116,16 @@ function Marco() {
           <View style={s.centro}>
             <Mono style={{ color: color.grisClaro, fontSize: 10 }}>// Centro</Mono>
             <Text style={s.centroNombre}>{CENTRO}</Text>
-            <Text style={s.centroDato}>8 personas · curso 26/27</Text>
+            <Text style={s.centroDato}>
+              {espacios.length} espacios · {materiales.length} materiales
+            </Text>
+            <Pressable onPress={() => router.navigate('/configurar')} accessibilityRole="link" style={s.configurar}>
+              {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                <Text style={[s.configurarTexto, (hovered || configurando) && { color: color.lima }]}>
+                  {configurando ? '● ' : ''}Configurar centro →
+                </Text>
+              )}
+            </Pressable>
           </View>
           <View style={s.yo}>
             <Avatar id={DIRECTOR.id} activo />
@@ -132,9 +149,9 @@ function Marco() {
           <Logo tam={26} />
           <Mono style={{ color: color.lima }}>// Escolar</Mono>
         </View>
-        <View style={s.pestanas}>
-          {NAV.map((n, i) => {
-            const on = i === activo;
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pestanas}>
+          {[...NAV, { ruta: '/configurar', texto: 'Configurar', corto: 'Ajustes', num: '07' }].map((n, i) => {
+            const on = n.ruta === ruta;
             const num = insignia(n.ruta);
             return (
               <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta)} accessibilityRole="link" style={s.pestana}>
@@ -150,7 +167,7 @@ function Marco() {
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
       </SafeAreaView>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.contenido, { padding: 16, paddingBottom: 96 }]} keyboardShouldPersistTaps="handled">
         {contenido}
@@ -173,8 +190,10 @@ const s = StyleSheet.create({
   centroNombre: { fontFamily: font.displayBold, fontSize: 13, color: color.crema, textTransform: 'uppercase', letterSpacing: -0.2 },
   centroDato: { fontFamily: font.ui, fontSize: 12, color: color.grisClaro },
   barra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  pestanas: { flexDirection: 'row', paddingHorizontal: 8 },
-  pestana: { flex: 1, alignItems: 'center', paddingTop: 6, paddingBottom: 12 },
+  pestanas: { flexDirection: 'row', paddingHorizontal: 6 },
+  pestana: { alignItems: 'center', paddingTop: 6, paddingBottom: 12, paddingHorizontal: 12 },
+  configurar: { marginTop: 10, alignSelf: 'flex-start' },
+  configurarTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.grisClaro },
   subrayado: { position: 'absolute', bottom: 0, left: 10, right: 10, height: 3, backgroundColor: color.lima },
   yo: { flexDirection: 'row', gap: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#22263A', paddingTop: 16 },
   yoNombre: { fontFamily: font.uiMedium, color: color.crema, fontSize: 14 },

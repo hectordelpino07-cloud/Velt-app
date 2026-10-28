@@ -5,7 +5,9 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Contador, cortado, Mono } from '../components/ui';
+import { esClase } from '../data/centro';
 import { CENTRO, DIRECTOR, EQUIPO, persona } from '../data/equipo';
+import { useCentro } from '../lib/centro';
 import { entra, entraLado } from '../lib/motion';
 import { useVelt } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -22,6 +24,13 @@ export default function Hoy() {
   const ancho = width >= ANCHO_ESCRITORIO;
   const grande = width >= 1240;
   const { tareas, carga } = useVelt();
+  const { ausentes, cubiertas, horario, materiales } = useCentro();
+  // Avisos del centro: clases sin cubrir por ausencias y material averiado
+  const clasesAusentes = ausentes.flatMap((id) =>
+    (horario[id] ?? []).map((h, f) => (esClase(h) ? `${f}:${h.espacio}` : '')).filter(Boolean),
+  );
+  const sinCubrir = clasesAusentes.filter((k) => !cubiertas[k]).length;
+  const averiados = materiales.filter((m) => m.estado === 'averiado').length;
 
   const activas = tareas.filter((t) => t.estado !== 'hecha');
   const sinConfirmar = tareas.filter((t) => t.estado === 'pendiente').length;
@@ -79,6 +88,25 @@ export default function Hoy() {
           </Text>
         </View>
       </Animated.View>
+
+      {(ausentes.length > 0 || averiados > 0) && (
+        <Animated.View entering={entra(0, 250)}>
+          <Pressable onPress={() => router.navigate(ausentes.length ? '/centro' : '/material')} accessibilityRole="link">
+            {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+              <View style={[s.aviso, cortado(14), hovered && { backgroundColor: '#B82424' }]}>
+                <Text style={s.avisoTexto}>
+                  {ausentes.length
+                    ? `${ausentes.map((id) => persona(id)?.nombre).join(' y ')} ${ausentes.length === 1 ? 'falta' : 'faltan'} hoy · ${sinCubrir} ${sinCubrir === 1 ? 'clase' : 'clases'} sin cubrir`
+                    : ''}
+                  {ausentes.length && averiados ? '   ·   ' : ''}
+                  {averiados ? `${averiados} ${averiados === 1 ? 'equipo averiado' : 'equipos averiados'}` : ''}
+                </Text>
+                <Text style={s.avisoFlecha}>Resolver →</Text>
+              </View>
+            )}
+          </Pressable>
+        </Animated.View>
+      )}
 
       {/* Dos acciones, en bloques de color sólido */}
       <View style={[s.acciones, !ancho && { flexDirection: 'column' }]}>
@@ -213,6 +241,9 @@ function Bloque({
 }
 
 const s = StyleSheet.create({
+  aviso: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: color.rojo, paddingVertical: 14, paddingHorizontal: 20, marginTop: 16 },
+  avisoTexto: { fontFamily: font.uiBold, fontSize: 15, color: color.blanco, flexShrink: 1 },
+  avisoFlecha: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.blanco },
   parte: { backgroundColor: color.tinta, padding: 30, overflow: 'hidden' },
   fondoHoy: {
     position: 'absolute',

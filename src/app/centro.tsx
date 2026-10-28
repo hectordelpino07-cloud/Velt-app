@@ -1,25 +1,16 @@
 // Mapa del centro: qué espacio está ocupado y dónde está cada persona en
 // cada franja. Se puede «reproducir el día» para ver cómo se mueve el centro,
 // marcar una ausencia y cubrir su clase con quien está de guardia.
+// Todo sale de la configuración del centro (lib/centro.tsx).
+import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Contador, cortado, Mono } from '../components/ui';
-import {
-  Clase,
-  esClase,
-  esLugar,
-  ESPACIOS,
-  FRANJAS,
-  franjaActual,
-  HORARIO,
-  MATERIA,
-  PASILLO,
-  PLANTAS,
-  RESERVAS_INICIALES,
-} from '../data/centro';
+import { Clase, esClase, esLugar, FRANJAS, franjaActual, MATERIA, TIPOS_MATERIAL } from '../data/centro';
 import { CENTRO, EQUIPO, persona } from '../data/equipo';
+import { useCentro } from '../lib/centro';
 import { entra, recoloca, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
@@ -27,16 +18,18 @@ import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
 type Estado = 'ocupada' | 'libre' | 'reservada' | 'mantenimiento' | 'sinprofe' | 'cubierta';
 
-type Celda = { estado: Estado; titulo: string; detalle: string; personas: string[] };
+type Celda = { estado: Estado; titulo: string; detalle: string; personas: string[]; material: { texto: string; mal: boolean }[] };
 
 const ESTILO: Record<Estado, { bg: string; borde: string; etiqueta: string; texto: string; acento: string }> = {
   ocupada: { bg: color.azulSuave, borde: color.cobalto, etiqueta: 'Ocupada', texto: color.cobalto, acento: color.cobalto },
   libre: { bg: 'transparent', borde: '#C9C3B4', etiqueta: 'Libre', texto: color.tinta, acento: color.gris },
   reservada: { bg: color.lima, borde: color.lima, etiqueta: 'Reservada', texto: color.tinta, acento: color.tinta },
-  mantenimiento: { bg: '#E7E3D8', borde: '#C9C3B4', etiqueta: 'Mantenimiento', texto: color.tinta, acento: color.gris },
+  mantenimiento: { bg: '#E7E3D8', borde: '#C9C3B4', etiqueta: 'Cerrada', texto: color.tinta, acento: color.gris },
   sinprofe: { bg: color.rojo, borde: color.rojo, etiqueta: 'Sin profesor', texto: color.blanco, acento: color.blanco },
   cubierta: { bg: color.tinta, borde: color.tinta, etiqueta: 'Guardia', texto: color.lima, acento: color.lima },
 };
+
+const POR_FILA = 4;
 
 export default function Centro() {
   const { width } = useWindowDimensions();
@@ -44,18 +37,18 @@ export default function Centro() {
   const lado = width >= 1300;
   const { enviar } = useVelt();
   const toast = useToast();
+  const cfg = useCentro();
+  const { plantas, espacios, horario, materiales, reservas, ausentes, cubiertas, espacio, nombreEspacio } = cfg;
 
   const ahora = useMemo(() => franjaActual(), []);
   const [franja, setFranja] = useState(ahora.franja);
-  const [planta, setPlanta] = useState('p1');
+  const [plantaElegida, setPlanta] = useState(plantas[0]?.id ?? '');
+  const planta = plantas.some((x) => x.id === plantaElegida) ? plantaElegida : plantas[0]?.id ?? '';
   const [reproduciendo, setReproduciendo] = useState(false);
-  const [ausentes, setAusentes] = useState<string[]>([]);
-  const [cubiertas, setCubiertas] = useState<Record<string, string>>({}); // 'f:espacio' → id de quien cubre
-  const [reservas, setReservas] = useState<Record<string, string>>(RESERVAS_INICIALES);
   const [foco, setFoco] = useState<string | null>(null);
   const reloj = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // «Reproducir el día»: avanza una franja cada 1,6 s y vuelve a empezar al final
+  // «Reproducir el día»: avanza una franja cada 1,6 s hasta la última
   useEffect(() => {
     if (!reproduciendo) return;
     reloj.current = setInterval(() => {
@@ -72,79 +65,106 @@ export default function Centro() {
     };
   }, [reproduciendo]);
 
+  // Quién da clase en un espacio y franja (el primero, si hubiera choque)
+  const claseEn = (espacioId: string, fr: number) =>
+    Object.entries(horario).find(([, hs]) => esClase(hs[fr]) && (hs[fr] as Clase).espacio === espacioId) as [string, Clase[]] | undefined;
+
   // Dónde está cada persona en la franja elegida
   const ubicaciones = useMemo(() => {
     const r: Record<string, { espacio: string | null; texto: string; tipo: 'clase' | 'guardia' | 'libre' | 'fijo' | 'ausente' | 'cubre' }> = {};
+    const sala = espacio('SALA') ? 'SALA' : null;
     for (const p of EQUIPO) {
-      const h = HORARIO[p.id]?.[franja];
+      const h = horario[p.id]?.[franja];
       const cubre = Object.entries(cubiertas).find(([k, quien]) => quien === p.id && k.startsWith(`${franja}:`));
       if (ausentes.includes(p.id)) r[p.id] = { espacio: null, texto: 'Ausente hoy', tipo: 'ausente' };
-      else if (cubre) r[p.id] = { espacio: cubre[0].split(':')[1], texto: `Cubre ${ESPACIOS[cubre[0].split(':')[1]].nombre}`, tipo: 'cubre' };
+      else if (cubre) r[p.id] = { espacio: cubre[0].split(':')[1], texto: `Cubre ${nombreEspacio(cubre[0].split(':')[1])}`, tipo: 'cubre' };
       else if (!h) r[p.id] = { espacio: null, texto: '—', tipo: 'libre' };
-      else if (esClase(h)) r[p.id] = { espacio: h.espacio, texto: ESPACIOS[h.espacio].tipo === 'aula' ? h.grupo : `${ESPACIOS[h.espacio].nombre} · ${h.grupo}`, tipo: 'clase' };
-      else if (esLugar(h)) r[p.id] = { espacio: h.lugar, texto: h.motivo === ESPACIOS[h.lugar].nombre ? h.motivo : `${ESPACIOS[h.lugar].nombre} · ${h.motivo}`, tipo: 'fijo' };
-      else if (h === 'guardia') r[p.id] = { espacio: null, texto: `Guardia · ${PASILLO}`, tipo: 'guardia' };
-      else r[p.id] = { espacio: 'SALA', texto: 'Sala de profesores', tipo: 'libre' };
+      else if (esClase(h))
+        r[p.id] = { espacio: h.espacio, texto: espacio(h.espacio)?.tipo === 'aula' ? h.grupo : `${nombreEspacio(h.espacio)} · ${h.grupo}`, tipo: 'clase' };
+      else if (esLugar(h)) r[p.id] = { espacio: h.lugar, texto: h.motivo === nombreEspacio(h.lugar) ? h.motivo : `${nombreEspacio(h.lugar)} · ${h.motivo}`, tipo: 'fijo' };
+      else if (h === 'guardia') r[p.id] = { espacio: null, texto: 'De guardia', tipo: 'guardia' };
+      else r[p.id] = { espacio: sala, texto: 'Sala de profesores', tipo: 'libre' };
     }
     return r;
-  }, [franja, ausentes, cubiertas]);
+  }, [franja, ausentes, cubiertas, horario, espacio, nombreEspacio]);
 
   // Estado de cada espacio en la franja elegida
   const celdas = useMemo(() => {
     const r: Record<string, Celda> = {};
-    for (const e of Object.values(ESPACIOS)) {
-      const clase = Object.entries(HORARIO).find(([, hs]) => esClase(hs[franja]) && (hs[franja] as Clase).espacio === e.id);
+    for (const e of espacios) {
+      const clase = claseEn(e.id, franja);
       const presentes = EQUIPO.filter((p) => ubicaciones[p.id].espacio === e.id).map((p) => p.id);
       const reserva = reservas[`${franja}:${e.id}`];
       const cubre = cubiertas[`${franja}:${e.id}`];
-      if (e.incidencia) r[e.id] = { estado: 'mantenimiento', titulo: e.nombre, detalle: e.incidencia, personas: [] };
+      const material = materiales
+        .filter((mt) => mt.espacio === e.id)
+        .map((mt) => {
+          const tipo = TIPOS_MATERIAL.find((t) => t.id === mt.tipo)!;
+          return { texto: mt.cantidad > 1 ? `${mt.cantidad} ${tipo.plural.toLowerCase()}` : tipo.nombre, mal: mt.estado === 'averiado' };
+        });
+      const base = { material };
+      if (e.cerrado) r[e.id] = { ...base, estado: 'mantenimiento', titulo: e.nombre, detalle: e.cerrado, personas: [] };
       else if (clase) {
         const [profe, hs] = clase;
-        const k = hs[franja] as Clase;
-        const nombre = persona(profe)!.nombre;
-        if (ausentes.includes(profe) && cubre) r[e.id] = { estado: 'cubierta', titulo: k.grupo, detalle: `${k.materia} · cubre ${persona(cubre)!.nombre}`, personas: [cubre] };
-        else if (ausentes.includes(profe)) r[e.id] = { estado: 'sinprofe', titulo: k.grupo, detalle: `${k.materia} · falta ${nombre}`, personas: [] };
-        else r[e.id] = { estado: 'ocupada', titulo: e.tipo === 'aula' ? k.grupo : e.nombre, detalle: e.tipo === 'aula' ? `${k.materia} · ${nombre}` : `${k.materia} ${k.grupo} · ${nombre}`, personas: [profe] };
-      } else if (reserva) r[e.id] = { estado: 'reservada', titulo: e.nombre, detalle: reserva, personas: presentes };
+        const k = hs[franja];
+        const nombre = persona(profe)?.nombre ?? '—';
+        if (ausentes.includes(profe) && cubre)
+          r[e.id] = { ...base, estado: 'cubierta', titulo: k.grupo, detalle: `${k.materia} · cubre ${persona(cubre)?.nombre}`, personas: [cubre] };
+        else if (ausentes.includes(profe)) r[e.id] = { ...base, estado: 'sinprofe', titulo: k.grupo, detalle: `${k.materia} · falta ${nombre}`, personas: [] };
+        else
+          r[e.id] = {
+            ...base,
+            estado: 'ocupada',
+            titulo: e.tipo === 'aula' ? k.grupo : e.nombre,
+            detalle: e.tipo === 'aula' ? `${k.materia} · ${nombre}` : `${k.materia} ${k.grupo} · ${nombre}`,
+            personas: [profe],
+          };
+      } else if (reserva) r[e.id] = { ...base, estado: 'reservada', titulo: e.nombre, detalle: reserva, personas: presentes };
       else if (presentes.length && e.tipo !== 'aula') {
         r[e.id] = {
+          ...base,
           estado: 'ocupada',
           titulo: e.nombre,
           detalle: presentes.length > 1 ? `${presentes.length} personas` : persona(presentes[0])!.nombre,
           personas: presentes,
         };
-      } else r[e.id] = { estado: 'libre', titulo: e.nombre, detalle: FRANJAS[franja].recreo ? 'Recreo' : 'Sin clase', personas: [] };
+      } else r[e.id] = { ...base, estado: 'libre', titulo: e.nombre, detalle: FRANJAS[franja].recreo ? 'Recreo' : 'Sin clase', personas: [] };
     }
     return r;
-  }, [franja, ubicaciones, reservas, ausentes, cubiertas]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [franja, ubicaciones, reservas, ausentes, cubiertas, espacios, materiales, horario]);
 
-  const aulas = Object.values(ESPACIOS).filter((e) => e.tipo === 'aula' || e.tipo === 'especial');
+  const aulas = espacios.filter((e) => (e.tipo === 'aula' || e.tipo === 'especial') && !e.cerrado);
   const ocupadas = aulas.filter((e) => ['ocupada', 'sinprofe', 'cubierta', 'reservada'].includes(celdas[e.id].estado)).length;
   const libres = aulas.filter((e) => celdas[e.id].estado === 'libre');
-  const sinProfe = Object.values(ESPACIOS).filter((e) => celdas[e.id].estado === 'sinprofe');
+  const sinProfe = espacios.filter((e) => celdas[e.id].estado === 'sinprofe');
   const deGuardia = EQUIPO.filter((p) => ubicaciones[p.id].tipo === 'guardia');
-  const enSala = EQUIPO.filter((p) => ubicaciones[p.id].tipo === 'libre' && HORARIO[p.id]?.[franja] === 'libre');
+  const enSala = EQUIPO.filter((p) => ubicaciones[p.id].tipo === 'libre' && horario[p.id]?.[franja] === 'libre');
+  const averiados = materiales.filter((mt) => mt.estado === 'averiado');
+  const cerrados = espacios.filter((e) => e.cerrado);
+  const proyectoresLibres = materiales.filter(
+    (mt) => mt.tipo === 'proyector' && mt.estado === 'ok' && (mt.espacio === null || celdas[mt.espacio]?.estado === 'libre'),
+  );
 
   // Ocupación por franja, para el gráfico de abajo
-  const ocupacionDia = FRANJAS.map((f) => aulas.filter((e) => Object.values(HORARIO).some((hs) => esClase(hs[f.id]) && (hs[f.id] as Clase).espacio === e.id)).length);
+  const ocupacionDia = FRANJAS.map((x) => aulas.filter((e) => claseEn(e.id, x.id)).length);
 
   const marcarAusente = (id: string) => {
     vibra();
     if (ausentes.includes(id)) {
-      setAusentes((a) => a.filter((x) => x !== id));
-      setCubiertas((c) => Object.fromEntries(Object.entries(c).filter(([k]) => !HORARIO[id].some((h, f) => esClase(h) && k === `${f}:${h.espacio}`))));
+      cfg.ausente(id, false);
       toast(`${persona(id)!.nombre} ya no está ausente.`);
     } else {
-      setAusentes((a) => [...a, id]);
-      const clases = HORARIO[id].filter(esClase).length;
-      toast(`${persona(id)!.nombre} ausente hoy: ${clases} clases sin profesor. VELT te propone guardias.`);
+      cfg.ausente(id, true);
+      const clases = (horario[id] ?? []).filter((h) => esClase(h)).length;
+      toast(`${persona(id)!.nombre} ausente hoy: ${clases} ${clases === 1 ? 'clase' : 'clases'} sin profesor. VELT te propone guardias.`);
     }
   };
 
   const cubrir = (espacioId: string, quien: string) => {
-    const k = Object.entries(HORARIO).find(([, hs]) => esClase(hs[franja]) && (hs[franja] as Clase).espacio === espacioId)!;
-    const clase = k[1][franja] as Clase;
-    setCubiertas((c) => ({ ...c, [`${franja}:${espacioId}`]: quien }));
+    const k = claseEn(espacioId, franja)!;
+    const clase = k[1][franja];
+    cfg.cubrir(franja, espacioId, quien);
     enviar([
       {
         id: `guardia-${franja}-${espacioId}-${Date.now()}`,
@@ -152,7 +172,7 @@ export default function Centro() {
         responsableId: quien,
         dia: 'Hoy',
         hora: FRANJAS[franja].inicio,
-        porque: `${persona(k[0])!.nombre} está ausente hoy. Aula ${ESPACIOS[espacioId].nombre}.`,
+        porque: `${persona(k[0])!.nombre} está ausente hoy. Aula ${nombreEspacio(espacioId)}.`,
       },
     ]);
     vibra('exito');
@@ -160,22 +180,23 @@ export default function Centro() {
   };
 
   const reservar = (espacioId: string) => {
-    setReservas((r) => ({ ...r, [`${franja}:${espacioId}`]: 'Reservada por dirección' }));
+    cfg.reservar(franja, espacioId, 'Reservada por dirección');
     vibra();
-    toast(`${ESPACIOS[espacioId].nombre} reservada a ${FRANJAS[franja].nombre} (${FRANJAS[franja].inicio}).`, {
+    toast(`${nombreEspacio(espacioId)} reservada a ${FRANJAS[franja].nombre} (${FRANJAS[franja].inicio}).`, {
       etiqueta: 'Deshacer',
-      fn: () => setReservas((r) => Object.fromEntries(Object.entries(r).filter(([k]) => k !== `${franja}:${espacioId}`))),
+      fn: () => cfg.quitarReserva(franja, espacioId),
     });
   };
 
   const f = FRANJAS[franja];
-  const p = PLANTAS.find((x) => x.id === planta)!;
+  const enPlanta = espacios.filter((e) => e.planta === planta);
+  const filas = Array.from({ length: Math.ceil(enPlanta.length / POR_FILA) }, (_, i) => enPlanta.slice(i * POR_FILA, (i + 1) * POR_FILA).map((e) => e.id));
 
   return (
     <View>
       <Animated.View entering={entra(0)}>
         <Mono style={{ marginBottom: 14 }}>
-          // {CENTRO} · 3 plantas · {Object.keys(ESPACIOS).length} espacios
+          // {CENTRO} · {plantas.length} plantas · {espacios.length} espacios
         </Mono>
       </Animated.View>
       <TitularRevela texto={'Mapa\ndel centro.'} tam={ancho ? 76 : 44} />
@@ -218,6 +239,14 @@ export default function Centro() {
             {f.nombre} · {f.inicio}–{f.fin}
             {ahora.real ? (franja === ahora.franja ? ' · ahora' : '') : ' · simulado'}
           </Mono>
+          <View style={s.atajos}>
+            <Boton variante="gris" pequeno onPress={() => router.navigate('/material')}>
+              Material
+            </Boton>
+            <Boton variante="gris" pequeno onPress={() => router.navigate('/configurar')}>
+              Editar el centro
+            </Boton>
+          </View>
         </View>
       </Animated.View>
 
@@ -225,14 +254,15 @@ export default function Centro() {
         {/* Mapa */}
         <View style={lado ? { flex: 1.6 } : undefined}>
           <View style={s.plantas}>
-            {PLANTAS.map((x) => (
+            {plantas.map((x) => (
               <Pressable key={x.id} onPress={() => setPlanta(x.id)} accessibilityRole="tab" style={[s.planta, x.id === planta && s.plantaOn, cortado(6)]}>
                 <Text style={[s.plantaTexto, x.id === planta && { color: color.crema }]}>{x.nombre}</Text>
               </Pressable>
             ))}
           </View>
           <View style={s.mapa}>
-            {p.filas.map((fila, i) => (
+            {filas.length === 0 && <Text style={s.vacioPlanta}>Esta planta no tiene espacios. Añádelos en «Editar el centro».</Text>}
+            {filas.map((fila, i) => (
               <View key={i}>
                 {i > 0 && (
                   <View style={s.pasillo}>
@@ -248,7 +278,7 @@ export default function Centro() {
                       id={id}
                       c={celdas[id]}
                       franja={franja}
-                      orden={i * 4 + j}
+                      orden={i * POR_FILA + j}
                       foco={!!foco && celdas[id].personas.includes(foco)}
                       movil={!ancho}
                     />
@@ -342,8 +372,30 @@ export default function Centro() {
               </View>
             )}
 
-            <Text style={s.ahoraSub}>Incidencia</Text>
-            <Text style={s.ahoraTexto}>Informática: {ESPACIOS.INF.incidencia?.toLowerCase()}. Mantenimiento ya tiene la tarea.</Text>
+            <Text style={s.ahoraSub}>Proyectores disponibles</Text>
+            <Text style={s.ahoraTexto}>
+              {proyectoresLibres.length
+                ? proyectoresLibres.map((mt) => `${mt.nombre} (${nombreEspacio(mt.espacio)})`).join(' · ')
+                : 'Ninguno libre en esta franja.'}
+            </Text>
+
+            <Text style={s.ahoraSub}>Incidencias</Text>
+            {averiados.length === 0 && cerrados.length === 0 && <Text style={s.ahoraTexto}>Ninguna. Todo funciona.</Text>}
+            {averiados.map((mt) => (
+              <Text key={mt.id} style={s.ahoraTexto}>
+                {mt.nombre} en {nombreEspacio(mt.espacio)}: {mt.nota?.toLowerCase() ?? 'averiado'}.
+              </Text>
+            ))}
+            {cerrados.map((e) => (
+              <Text key={e.id} style={s.ahoraTexto}>
+                {e.nombre} cerrada: {e.cerrado?.toLowerCase()}.
+              </Text>
+            ))}
+            {averiados.length > 0 && (
+              <Pressable onPress={() => router.navigate('/material')} accessibilityRole="link" style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+                <Text style={s.enlace}>Ver material →</Text>
+              </Pressable>
+            )}
           </View>
 
           <View style={s.personal}>
@@ -418,12 +470,28 @@ function CeldaMapa({ id, c, franja, orden, foco, movil }: { id: string; c: Celda
         <Text style={[s.celdaTitulo, { color: e.texto }]}>{c.titulo}</Text>
         <Text style={[s.celdaDetalle, { color: c.estado === 'sinprofe' || c.estado === 'cubierta' ? e.texto : color.gris }]} numberOfLines={2}>
           {c.detalle}
-        </Text>      </Animated.View>
+        </Text>
+        {c.material.length > 0 && (
+          <View style={s.materialFila}>
+            {c.material.map((mt, i) => (
+              <Text key={i} style={[s.materialTag, mt.mal && s.materialMal]} numberOfLines={1}>
+                {mt.mal ? `${mt.texto} averiado` : mt.texto}
+              </Text>
+            ))}
+          </View>
+        )}
+      </Animated.View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  atajos: { flexDirection: 'row', gap: 8, marginLeft: 'auto' },
+  vacioPlanta: { fontFamily: font.ui, fontSize: 14, color: color.gris, paddingVertical: 20 },
+  enlace: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.lima, textDecorationLine: 'underline' },
+  materialFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 },
+  materialTag: { fontFamily: font.mono, fontSize: 9, letterSpacing: 0.5, textTransform: 'uppercase', color: color.tinta, backgroundColor: 'rgba(11,13,20,0.07)', paddingHorizontal: 5, paddingVertical: 2 },
+  materialMal: { backgroundColor: '#F6D4D4', color: color.rojo },
   franjas: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   franja: { borderWidth: 1.5, borderColor: color.tinta, paddingVertical: 8, paddingHorizontal: 12, minWidth: 82 },
   franjaOn: { backgroundColor: color.tinta },
