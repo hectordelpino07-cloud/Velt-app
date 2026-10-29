@@ -62,5 +62,5 @@ const s = StyleSheet.create({
   },
   punto: { width: 8, height: 8, backgroundColor: color.lima },
   texto: { fontFamily: font.uiMedium, fontSize: 14, color: color.crema, flexShrink: 1 },
-  accion: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.lima },
+  accion: { fontFamily: font.uiBold, fontSize: 13, color: color.lima },
 });

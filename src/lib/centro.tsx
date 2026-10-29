@@ -135,11 +135,14 @@ export function CentroProvider({ children }: { children: ReactNode }) {
   const [d, setD] = useState<Datos>(cargar);
 
   useEffect(() => {
-    try {
-      almacen?.setItem(CLAVE, JSON.stringify(d));
-    } catch {
-      // sin almacenamiento: sigue funcionando en memoria
-    }
+    const t = setTimeout(() => {
+      try {
+        almacen?.setItem(CLAVE, JSON.stringify(d));
+      } catch {
+        // sin almacenamiento: sigue funcionando en memoria
+      }
+    }, 250);
+    return () => clearTimeout(t);
   }, [d]);
 
   // El resto de la app consulta el personal en data/equipo.ts

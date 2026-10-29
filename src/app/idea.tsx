@@ -2,11 +2,11 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeOutUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeOutUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Chip, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
 import { DIRECTOR, nombreCompleto, persona } from '../data/equipo';
-import { entra, entraLado, recoloca, sale, vibra } from '../lib/motion';
+import { asoma, entra, entraLado, recoloca, sale, vibra } from '../lib/motion';
 import { aFecha, etiquetaDia } from '../lib/fechas';
 import { analizarIdea, Analisis } from '../lib/parser';
 import { useVelt } from '../lib/store';
@@ -46,6 +46,7 @@ export default function NuevaIdea() {
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [descartadas, setDescartadas] = useState<string[]>([]);
   const [enviado, setEnviado] = useState<Enviado | null>(null);
+  const [altoIdea, setAltoIdea] = useState(0);
 
   const convertir = (t = texto) => {
     setAnalisis(analizarIdea(t, carga));
@@ -116,11 +117,9 @@ export default function NuevaIdea() {
 
   return (
     <View>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>{'// '}Idea · Hoy {ahora}</Mono>
-      </Animated.View>
       <View style={{ marginBottom: 30 }}>
-        <TitularRevela texto={'De tu idea\na tareas claras.'} tam={ancho ? 68 : 38} />
+        <TitularRevela texto={'De tu idea\na tareas claras.'} tam={ancho ? 56 : 34} />
+        <Mono style={{ marginTop: 10, fontSize: 14 }}>Hoy, {ahora}</Mono>
       </View>
 
       <View style={[s.columnas, !dosColumnas && { flexDirection: 'column', alignItems: 'stretch' }]}>
@@ -135,9 +134,9 @@ export default function NuevaIdea() {
               )}
             </View>
             {leyendo && analisis ? (
-              <View>
+              <View onLayout={(e) => setAltoIdea(e.nativeEvent.layout.height)}>
                 <Resaltado texto={texto} analisis={analisis} />
-                {fase === 'pensando' && <Escaner />}
+                {fase === 'pensando' && <Escaner alto={altoIdea} />}
               </View>
             ) : (
               <TextInput
@@ -347,12 +346,12 @@ function Leyenda({ analisis }: { analisis: Analisis }) {
 }
 
 // Línea lima que barre la idea mientras VELT la lee
-function Escaner() {
+function Escaner({ alto }: { alto: number }) {
   const y = useSharedValue(0);
   useEffect(() => {
-    y.value = withRepeat(withSequence(withTiming(1, { duration: 700 }), withTiming(0, { duration: 700 })), -1);
+    y.set(withRepeat(withSequence(withTiming(1, { duration: 700 }), withTiming(0, { duration: 700 })), -1));
   }, [y]);
-  const anim = useAnimatedStyle(() => ({ top: `${y.value * 100}%` as `${number}%` }));
+  const anim = useAnimatedStyle(() => ({ transform: [{ translateY: y.value * alto }] }));
   return <Animated.View pointerEvents="none" style={[s.escaner, anim]} />;
 }
 
@@ -378,7 +377,7 @@ function Cuadro({ retraso }: { retraso: number }) {
     return () => clearTimeout(t);
   }, [retraso]);
   return hecho ? (
-    <Animated.View entering={ZoomIn.duration(200)} style={[s.cuadro, { backgroundColor: color.cobalto }]}>
+    <Animated.View entering={asoma()} style={[s.cuadro, { backgroundColor: color.cobalto }]}>
       <Text style={{ color: color.blanco, fontSize: 10, fontFamily: font.monoBold }}>✓</Text>
     </Animated.View>
   ) : (
@@ -464,12 +463,10 @@ function FilaTarea({ t, i, onQuitar }: { t: Final; i: number; onQuitar: () => vo
 function PantallaEnviado({ enviado, ancho, onNueva }: { enviado: Enviado; ancho: boolean; onNueva: () => void }) {
   return (
     <View style={{ maxWidth: 760 }}>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>{'// '}Enviado · hoy {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Mono>
-      </Animated.View>
-      <Animated.View entering={ZoomIn.springify().damping(14).stiffness(180)}>
-        <TitularRevela texto="Enviado." tam={ancho ? 96 : 56} style={{ color: color.cobalto }} />
-      </Animated.View>
+      <View>
+        <TitularRevela texto="Enviado." tam={ancho ? 96 : 56} anima style={{ color: color.cobalto }} />
+        <Mono style={{ marginTop: 10, fontSize: 14 }}>Hoy, {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Mono>
+      </View>
       <Animated.View entering={entra(1, 200)}>
         <Text style={s.enviadoTexto}>
           {enviado.tareas} {enviado.tareas === 1 ? 'tarea' : 'tareas'} repartidas. Cada persona ya tiene lo suyo y te avisará al confirmar.
@@ -488,7 +485,7 @@ function PantallaEnviado({ enviado, ancho, onNueva }: { enviado: Enviado; ancho:
                   {p.rol} · {x.n} {x.n === 1 ? 'tarea' : 'tareas'}
                 </Text>
               </View>
-              <Animated.View entering={ZoomIn.delay(650 + i * 140).duration(260)} style={[s.notificado, cortado(6)]}>
+              <Animated.View entering={asoma(450 + i * 80)} style={[s.notificado, cortado(6)]}>
                 <Text style={s.notificadoTexto}>Notificado</Text>
               </Animated.View>
             </Animated.View>
@@ -529,13 +526,13 @@ const diaLimite = (ts: { dia: string | null }[]) => {
 const s = StyleSheet.create({
   columnas: { flexDirection: 'row', gap: 32, alignItems: 'flex-start' },
   cabeceraIdea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  editar: { fontFamily: font.monoBold, fontSize: 11, color: color.lima, textDecorationLine: 'underline', textTransform: 'uppercase', letterSpacing: 1 },
+  editar: { fontFamily: font.uiBold, fontSize: 13, color: color.lima, textDecorationLine: 'underline' },
   entrada: { minHeight: 190, color: color.crema, fontFamily: font.ui, fontSize: 16, lineHeight: 25, textAlignVertical: 'top', outlineStyle: 'none' } as never,
   idea: { color: '#E7E4DC', fontFamily: font.ui, fontSize: 16, lineHeight: 28 },
   marcaOk: { backgroundColor: color.cobalto, color: color.blanco },
   marcaFalta: { backgroundColor: color.lima, color: color.tinta },
   marcaAviso: { color: '#FF8A8A', textDecorationLine: 'line-through', textDecorationColor: color.rojo },
-  escaner: { position: 'absolute', left: -20, right: -20, height: 2, backgroundColor: color.lima, boxShadow: `0 0 18px 4px rgba(198,242,78,0.55)` },
+  escaner: { position: 'absolute', left: -20, right: -20, top: 0, height: 2, backgroundColor: color.lima, boxShadow: `0 0 18px 4px rgba(198,242,78,0.55)` },
   botones: { flexDirection: 'row', gap: 10, marginTop: 18 },
   resumen: { flexDirection: 'row', borderTopWidth: 3, borderTopColor: color.tinta, borderBottomWidth: 1, borderBottomColor: color.borde, marginBottom: 16 },
   dato: { flex: 1, paddingVertical: 14, paddingRight: 8 },
@@ -552,7 +549,7 @@ const s = StyleSheet.create({
   vista: { flexDirection: 'row', gap: 28, alignItems: 'center', marginTop: 36 },
   porque: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.grisClaro, marginTop: 12 },
   falsoBoton: { paddingVertical: 8, paddingHorizontal: 10, backgroundColor: color.crema },
-  falsoTexto: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: color.tinta },
+  falsoTexto: { fontFamily: font.uiBold, fontSize: 12, color: color.tinta },
   paso: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: color.borde },
   pasoTexto: { fontFamily: font.uiMedium, fontSize: 15, color: color.tinta },
   cuadro: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
@@ -567,5 +564,5 @@ const s = StyleSheet.create({
   enviadoTexto: { fontFamily: font.ui, fontSize: 18, lineHeight: 27, color: color.tinta, marginTop: 16, maxWidth: 560 },
   destinatario: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: color.borde },
   notificado: { backgroundColor: color.lima, paddingVertical: 5, paddingHorizontal: 10 },
-  notificadoTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.tinta },
+  notificadoTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
 });

@@ -2,14 +2,14 @@
 // cada una, les pone nombre y rellena los horarios. Pensado para hacerse en
 // diez minutos y sin manual: todo se edita en el sitio y se guarda solo.
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, cortado, Mono } from '../components/ui';
 import { Clase, esClase, esLugar, Espacio, Franja, JORNADAS, TIPOS_ESPACIO, TurnoFranja } from '../data/centro';
 import { activos, CENTRO, daClase, DIRECTOR, EQUIPO, Persona, persona, ROLES, TURNOS } from '../data/equipo';
 import { useCentro } from '../lib/centro';
-import { entra, recoloca, sale, vibra } from '../lib/motion';
+import { entra, sale, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -26,12 +26,8 @@ export default function Configurar() {
 
   return (
     <View style={{ maxWidth: 1000 }}>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 14 }}>
-          {'// '}{CENTRO} · se guarda solo
-        </Mono>
-      </Animated.View>
-      <TitularRevela texto={'Configura\ntu centro.'} tam={ancho ? 76 : 34} />
+      <TitularRevela texto="Configura tu centro." tam={ancho ? 48 : 30} />
+      <Mono style={{ marginTop: 10, fontSize: 14 }}>{CENTRO} · los cambios se guardan solos</Mono>
       <Animated.View entering={entra(2, 120)}>
         <Text style={s.intro}>
           Cuatro pasos, en este orden: las plantas y sus aulas, la jornada (horas de mañana, de tarde o ambas), el personal y qué hace cada profesor en cada hora.
@@ -81,6 +77,21 @@ export default function Configurar() {
   );
 }
 
+// Campo de texto que guarda al salir de él (o al pulsar Intro), no en cada letra:
+// así escribir no recalcula ni guarda todo el centro a cada pulsación.
+function Campo({ valor, alGuardar, ...resto }: Omit<TextInputProps, 'value' | 'onChangeText'> & { valor: string; alGuardar: (v: string) => void }) {
+  const [texto, setTexto] = useState(valor);
+  const [antes, setAntes] = useState(valor);
+  if (antes !== valor) {
+    setAntes(valor);
+    setTexto(valor);
+  }
+  const guardar = () => {
+    if (texto !== valor) alGuardar(texto);
+  };
+  return <TextInput {...resto} value={texto} onChangeText={setTexto} onBlur={guardar} onSubmitEditing={guardar} />;
+}
+
 // ——— Paso 1: plantas y aulas ———
 
 function Espacios() {
@@ -91,11 +102,11 @@ function Espacios() {
         const suyos = cfg.espacios.filter((e) => e.planta === pl.id);
         const aulas = suyos.filter((e) => e.tipo === 'aula').length;
         return (
-          <Animated.View key={pl.id} entering={entra(i, 150)} exiting={sale} layout={recoloca} style={[s.planta, cortado(18)]}>
+          <Animated.View key={pl.id} exiting={sale} style={[s.planta, cortado(18)]}>
             <View style={s.plantaCabecera}>
-              <TextInput
-                value={pl.nombre}
-                onChangeText={(t) => cfg.renombrarPlanta(pl.id, t)}
+              <Campo
+                valor={pl.nombre}
+                alGuardar={(t) => cfg.renombrarPlanta(pl.id, t)}
                 style={s.plantaNombre}
                 accessibilityLabel="Nombre de la planta"
               />
@@ -146,8 +157,8 @@ function Espacios() {
 function FilaEspacio({ e }: { e: Espacio }) {
   const cfg = useCentro();
   return (
-    <Animated.View entering={entra(0)} exiting={sale} layout={recoloca} style={s.espacio}>
-      <TextInput value={e.nombre} onChangeText={(t) => cfg.editarEspacio(e.id, { nombre: t })} style={s.espacioNombre} accessibilityLabel="Nombre del espacio" />
+    <Animated.View exiting={sale} style={s.espacio}>
+      <Campo valor={e.nombre} alGuardar={(t) => cfg.editarEspacio(e.id, { nombre: t })} style={s.espacioNombre} accessibilityLabel="Nombre del espacio" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4 }} style={{ flexGrow: 0 }}>
         {TIPOS_ESPACIO.map((t) => (
           <Pressable key={t.id} onPress={() => cfg.editarEspacio(e.id, { tipo: t.id })} style={[s.tipo, e.tipo === t.id && s.tipoOn]}>
@@ -248,7 +259,7 @@ function FilaFranja({ f }: { f: Franja }) {
     if (HORA.test(limpio)) cfg.editarFranja(f.id, { [campo]: limpio });
   };
   return (
-    <Animated.View entering={entra(0)} exiting={sale} layout={recoloca} style={s.espacio}>
+    <Animated.View exiting={sale} style={s.espacio}>
       <TextInput value={inicio} onChangeText={(v) => guardar('inicio', v)} style={[s.hora, !HORA.test(inicio) && s.horaMal]} accessibilityLabel="Hora de inicio" />
       <Text style={s.guion}>–</Text>
       <TextInput
@@ -257,7 +268,7 @@ function FilaFranja({ f }: { f: Franja }) {
         style={[s.hora, (!HORA.test(fin) || fin <= inicio) && s.horaMal]}
         accessibilityLabel="Hora de final"
       />
-      <TextInput value={f.nombre} onChangeText={(t) => cfg.editarFranja(f.id, { nombre: t })} style={s.espacioNombre} accessibilityLabel="Nombre de la hora" />
+      <Campo valor={f.nombre} alGuardar={(t) => cfg.editarFranja(f.id, { nombre: t })} style={s.espacioNombre} accessibilityLabel="Nombre de la hora" />
       <Pressable onPress={() => cfg.editarFranja(f.id, { recreo: !f.recreo })} style={[s.tipo, f.recreo && s.tipoOn]}>
         <Text style={[s.tipoTexto, f.recreo && { color: color.crema }]}>Recreo</Text>
       </Pressable>
@@ -309,28 +320,28 @@ function FilaPersona({ p }: { p: Persona }) {
   const cfg = useCentro();
   const director = p.id === DIRECTOR.id;
   return (
-    <Animated.View entering={entra(0)} layout={recoloca} style={[s.persona, p.baja && { opacity: 0.45 }]}>
+    <Animated.View style={[s.persona, p.baja && { opacity: 0.45 }]}>
       <View style={s.personaArriba}>
         <Avatar id={p.id} tam={32} />
-        <TextInput
-          value={p.nombre}
-          onChangeText={(t) => cfg.editarPersona(p.id, { nombre: t })}
+        <Campo
+          valor={p.nombre}
+          alGuardar={(t) => cfg.editarPersona(p.id, { nombre: t })}
           placeholder="Nombre"
           placeholderTextColor="#9A9DA8"
           style={[s.campo, { width: 120, fontFamily: font.uiBold }]}
           editable={!p.baja}
         />
-        <TextInput
-          value={p.apellido}
-          onChangeText={(t) => cfg.editarPersona(p.id, { apellido: t })}
+        <Campo
+          valor={p.apellido}
+          alGuardar={(t) => cfg.editarPersona(p.id, { apellido: t })}
           placeholder="Apellido"
           placeholderTextColor="#9A9DA8"
           style={[s.campo, { width: 130 }]}
           editable={!p.baja}
         />
-        <TextInput
-          value={p.materia ?? ''}
-          onChangeText={(t) => cfg.editarPersona(p.id, { materia: t })}
+        <Campo
+          valor={p.materia ?? ''}
+          alGuardar={(t) => cfg.editarPersona(p.id, { materia: t })}
           placeholder={daClase(p) ? 'Asignatura' : 'Puesto'}
           placeholderTextColor="#9A9DA8"
           style={[s.campo, { flex: 1, minWidth: 120 }]}
@@ -433,7 +444,7 @@ function Horarios({ ancho }: { ancho: boolean }) {
           const fueraTurno = !!yo && yo.turno !== 'ambos' && yo.turno !== f.turno;
           const conflicto = esClase(h) ? choque(f.id, h.espacio) : undefined;
           return (
-            <Animated.View key={`${quien}-${f.id}`} entering={entra(f.id, 60)} layout={recoloca} style={[s.franja, f.recreo && { backgroundColor: '#FAF8F3' }, tipo === 'fuera' && { opacity: 0.55 }]}>
+            <Animated.View key={`${quien}-${f.id}`} style={[s.franja, f.recreo && { backgroundColor: '#FAF8F3' }, tipo === 'fuera' && { opacity: 0.55 }]}>
               <View style={[s.franjaFila, !ancho && { flexDirection: 'column', alignItems: 'flex-start' }]}>
                 <View style={{ width: 92 }}>
                   <Text style={s.franjaHora}>{f.inicio}</Text>
@@ -451,18 +462,18 @@ function Horarios({ ancho }: { ancho: boolean }) {
                     <Pressable onPress={() => setEligiendo(eligiendo === f.id ? null : f.id)} style={[s.aulaElegida, conflicto && { borderColor: color.rojo }]}>
                       <Text style={s.aulaElegidaTexto}>{cfg.nombreEspacio(h.espacio)} ▾</Text>
                     </Pressable>
-                    <TextInput
-                      value={h.grupo}
+                    <Campo
+                      valor={h.grupo}
                       placeholder="Grupo"
                       placeholderTextColor="#9A9DA8"
-                      onChangeText={(t) => cfg.ponerHueco(quien, f.id, { ...h, grupo: t })}
+                      alGuardar={(t) => cfg.ponerHueco(quien, f.id, { ...h, grupo: t })}
                       style={[s.campo, { width: 110 }]}
                     />
-                    <TextInput
-                      value={h.materia}
+                    <Campo
+                      valor={h.materia}
                       placeholder="Asignatura"
                       placeholderTextColor="#9A9DA8"
-                      onChangeText={(t) => cfg.ponerHueco(quien, f.id, { ...h, materia: t })}
+                      alGuardar={(t) => cfg.ponerHueco(quien, f.id, { ...h, materia: t })}
                       style={[s.campo, { flex: 1, minWidth: 120 }]}
                     />
                   </View>
@@ -525,7 +536,7 @@ const s = StyleSheet.create({
   plantillaOn: { backgroundColor: color.tinta, borderColor: color.tinta },
   plantillaNombre: { fontFamily: font.display, fontSize: 17, textTransform: 'uppercase', color: color.tinta },
   plantillaDetalle: { fontFamily: font.ui, fontSize: 13, color: color.gris, marginTop: 4 },
-  plantillaMarca: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: color.lima, marginTop: 10 },
+  plantillaMarca: { fontFamily: font.uiBold, fontSize: 12, color: color.lima, marginTop: 10 },
   hora: { fontFamily: font.monoBold, fontSize: 15, color: color.tinta, width: 64, borderBottomWidth: 1.5, borderBottomColor: color.borde, paddingVertical: 6, textAlign: 'center', outlineStyle: 'none' } as never,
   horaMal: { borderBottomColor: color.rojo, color: color.rojo },
   guion: { fontFamily: font.mono, color: color.gris },
@@ -534,18 +545,18 @@ const s = StyleSheet.create({
   personaAbajo: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: 42 },
   separador: { width: 1, height: 18, backgroundColor: color.borde, marginHorizontal: 6 },
   turnoOn: { backgroundColor: color.lima, borderColor: color.lima },
-  baja: { fontFamily: font.mono, fontSize: 11, textTransform: 'uppercase', color: color.gris, textDecorationLine: 'underline' },
+  baja: { fontFamily: font.uiMedium, fontSize: 13, color: color.gris, textDecorationLine: 'underline' },
   avisoTurno: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, marginTop: 6 },
   intro: { fontFamily: font.ui, fontSize: 16, lineHeight: 24, color: color.gris, marginTop: 16, maxWidth: 640 },
   pestanas: { flexDirection: 'row', gap: 6, marginTop: 26, marginBottom: 18, flexWrap: 'wrap' },
   pestana: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: '#E7E3D8' },
   pestanaOn: { backgroundColor: color.tinta },
-  pestanaTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.tinta },
+  pestanaTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   planta: { backgroundColor: color.blanco, padding: 20, borderWidth: 1, borderColor: color.borde },
   plantaCabecera: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   plantaNombre: { fontFamily: font.display, fontSize: 24, textTransform: 'uppercase', color: color.tinta, minWidth: 180, flex: 1, outlineStyle: 'none', paddingVertical: 4 } as never,
   contador: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  contadorEtiqueta: { fontFamily: font.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.gris, marginRight: 4 },
+  contadorEtiqueta: { fontFamily: font.uiMedium, fontSize: 13, color: color.gris, marginRight: 4 },
   contadorBoton: { width: 34, height: 34, backgroundColor: color.tinta, alignItems: 'center', justifyContent: 'center' },
   contadorSigno: { fontFamily: font.monoBold, fontSize: 18, color: color.lima },
   contadorN: { fontFamily: font.display, fontSize: 24, color: color.tinta, minWidth: 34, textAlign: 'center' },
@@ -554,13 +565,13 @@ const s = StyleSheet.create({
   espacioNombre: { fontFamily: font.uiBold, fontSize: 15, color: color.tinta, minWidth: 150, flex: 1, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'transparent', outlineStyle: 'none' } as never,
   tipo: { borderWidth: 1, borderColor: color.borde, paddingVertical: 5, paddingHorizontal: 8 },
   tipoOn: { backgroundColor: color.tinta, borderColor: color.tinta },
-  tipoTexto: { fontFamily: font.mono, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: color.tinta },
+  tipoTexto: { fontFamily: font.uiMedium, fontSize: 12, color: color.tinta },
   borrar: { paddingHorizontal: 8, paddingVertical: 4 },
   borrarTexto: { fontFamily: font.monoBold, fontSize: 14, color: color.gris },
   anadir: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: color.borde },
   anadirBoton: { paddingVertical: 4 },
-  anadirTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: color.tinta, textDecorationLine: 'underline' },
-  quitarPlanta: { fontFamily: font.mono, fontSize: 11, textTransform: 'uppercase', color: color.gris, textDecorationLine: 'underline' },
+  anadirTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta, textDecorationLine: 'underline' },
+  quitarPlanta: { fontFamily: font.uiMedium, fontSize: 13, color: color.gris, textDecorationLine: 'underline' },
   profe: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingLeft: 8, paddingRight: 16, backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde },
   profeOn: { backgroundColor: color.tinta, borderColor: color.tinta },
   profeNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
@@ -569,11 +580,11 @@ const s = StyleSheet.create({
   franja: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: color.borde },
   franjaFila: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   franjaHora: { fontFamily: font.monoBold, fontSize: 15, color: color.tinta },
-  franjaNombre: { fontFamily: font.mono, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: color.gris },
+  franjaNombre: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris },
   segmentos: { flexDirection: 'row' },
   segmento: { borderWidth: 1.5, borderColor: color.tinta, paddingVertical: 6, paddingHorizontal: 10, marginLeft: -1.5, maxWidth: 170 },
   segmentoOn: { backgroundColor: color.tinta },
-  segmentoTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: color.tinta },
+  segmentoTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   claseResumen: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' },
   aulaElegida: { borderWidth: 1.5, borderColor: color.cobalto, backgroundColor: color.azulSuave, paddingVertical: 6, paddingHorizontal: 10 },
   aulaElegidaTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.cobalto },
@@ -583,7 +594,7 @@ const s = StyleSheet.create({
   opcion: { borderWidth: 1, borderColor: color.borde, backgroundColor: color.blanco, paddingVertical: 6, paddingHorizontal: 10 },
   opcionOn: { backgroundColor: color.cobalto, borderColor: color.cobalto },
   opcionTexto: { fontFamily: font.uiMedium, fontSize: 13, color: color.tinta },
-  opcionOcupada: { fontFamily: font.mono, fontSize: 9, textTransform: 'uppercase', color: color.rojo, marginTop: 1 },
+  opcionOcupada: { fontFamily: font.uiMedium, fontSize: 12, color: color.rojo, marginTop: 1 },
   notaHorario: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.gris, marginTop: 12 },
   reinicio: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, marginTop: 40, paddingTop: 18, borderTopWidth: 3, borderTopColor: color.tinta },
   reinicioTitulo: { fontFamily: font.uiBold, fontSize: 15, color: color.tinta },

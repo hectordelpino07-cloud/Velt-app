@@ -2,7 +2,7 @@
 // y el movimiento de la app (pulsar, pasar el ratón, contadores, barras).
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Polygon } from 'react-native-svg';
 import { color, font } from '../lib/theme';
 import { curva } from '../lib/motion';
@@ -96,8 +96,13 @@ export function Titular({ children, tam = 44, style }: { children: ReactNode; ta
   );
 }
 
-export function Mono({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  return <Text style={[s.mono, style]}>{children}</Text>;
+// Etiqueta pequeña. Por defecto es texto normal en frase; con `marca` conserva
+// el estilo de la marca («// VELT Escolar»), que solo se usa en la barra lateral.
+export function Mono({ children, style, marca }: { children: ReactNode; style?: StyleProp<TextStyle>; marca?: boolean }) {
+  if (marca) return <Text style={[s.marca, style]}>{children}</Text>;
+  const partes = Array.isArray(children) ? [...children] : [children];
+  if (partes[0] === '// ') partes.shift();
+  return <Text style={[s.etiqueta, style]}>{partes}</Text>;
 }
 
 type VarianteBoton = 'principal' | 'gris' | 'blanco' | 'tinta' | 'linea' | 'lima';
@@ -149,13 +154,13 @@ export function Boton({
         onPress={onPress}
         disabled={disabled}
         accessibilityRole="button"
-        onHoverIn={() => alto.set(withTiming(1, { duration: 160 }))}
-        onHoverOut={() => alto.set(withTiming(0, { duration: 160 }))}
+        onHoverIn={() => alto.set(withTiming(1, { duration: 160, easing: curva }))}
+        onHoverOut={() => alto.set(withTiming(0, { duration: 160, easing: curva }))}
         onPressIn={() => {
-          alto.set(withTiming(0, { duration: 80 }));
-          escala.set(withTiming(WEB ? 1 : 0.96, { duration: 90 }));
+          alto.set(withTiming(0, { duration: 80, easing: curva }));
+          escala.set(withTiming(0.97, { duration: 120, easing: curva }));
         }}
-        onPressOut={() => escala.set(withSpring(1, { damping: 14, stiffness: 260 }))}
+        onPressOut={() => escala.set(withTiming(1, { duration: 160, easing: curva }))}
       >
         <Animated.View
           style={[
@@ -166,7 +171,7 @@ export function Boton({
             anim,
           ]}
         >
-          <Text style={[s.botonTexto, pequeno && { fontSize: 11 }, { color: v.texto }]}>{children}</Text>
+          <Text style={[s.botonTexto, pequeno && { fontSize: 13 }, { color: v.texto }]}>{children}</Text>
           {variante !== 'linea' && <Esquina tam={corte} fondo={fondo} />}
         </Animated.View>
       </Pressable>
@@ -250,8 +255,14 @@ export function Avatar({ id, tam = 34, activo }: { id: string | null; tam?: numb
   );
 }
 
-// Número que sube hasta su valor (como los paneles de Linear o Stripe)
-export function Contador({ valor, style }: { valor: number; style?: StyleProp<TextStyle> }) {
+// Número de datos. Con `anima` sube hasta su valor la primera vez (solo para
+// la cifra protagonista de una pantalla); sin él se muestra tal cual.
+export function Contador({ valor, style, anima }: { valor: number; style?: StyleProp<TextStyle>; anima?: boolean }) {
+  if (!anima) return <Text style={[{ fontVariant: ['tabular-nums'] }, style]}>{valor}</Text>;
+  return <ContadorAnimado valor={valor} style={style} />;
+}
+
+function ContadorAnimado({ valor, style }: { valor: number; style?: StyleProp<TextStyle> }) {
   const [v, setV] = useState(0);
   const anterior = useRef(0);
   useEffect(() => {
@@ -259,7 +270,7 @@ export function Contador({ valor, style }: { valor: number; style?: StyleProp<Te
     const inicio = Date.now();
     let marco: number;
     const paso = () => {
-      const p = Math.min(1, (Date.now() - inicio) / 650);
+      const p = Math.min(1, (Date.now() - inicio) / 600);
       const e = 1 - Math.pow(1 - p, 3);
       setV(Math.round(desde + (valor - desde) * e));
       if (p < 1) marco = requestAnimationFrame(paso);
@@ -268,7 +279,7 @@ export function Contador({ valor, style }: { valor: number; style?: StyleProp<Te
     marco = requestAnimationFrame(paso);
     return () => cancelAnimationFrame(marco);
   }, [valor]);
-  return <Text style={style}>{v}</Text>;
+  return <Text style={[{ fontVariant: ['tabular-nums'] }, style]}>{v}</Text>;
 }
 
 // Barra de progreso por tramos que crecen al aparecer o al cambiar
@@ -277,7 +288,7 @@ export function Barra({ tramos, total, alto = 10, vacio = '#E2DDD0' }: { tramos:
   return (
     <View style={{ flexDirection: 'row', height: alto, backgroundColor: vacio, overflow: 'hidden' }}>
       {tramos.map((t, i) => (
-        <Tramo key={i} valor={total ? t.valor / total : 0} color={t.color} retraso={i * 120} />
+        <Tramo key={i} valor={total ? t.valor / total : 0} color={t.color} retraso={i * 60} />
       ))}
       <View style={{ flexGrow: Math.max(0, total - usado) / (total || 1), flexBasis: 0 }} />
     </View>
@@ -287,20 +298,24 @@ export function Barra({ tramos, total, alto = 10, vacio = '#E2DDD0' }: { tramos:
 function Tramo({ valor, color: c, retraso }: { valor: number; color: string; retraso: number }) {
   const f = useSharedValue(0);
   useEffect(() => {
-    const t = setTimeout(() => f.set(withTiming(valor, { duration: 700, easing: curva })), retraso);
-    return () => clearTimeout(t);
-  }, [valor, retraso, f]);
-  const anim = useAnimatedStyle(() => ({ flexGrow: f.value }));
-  return <Animated.View style={[{ flexBasis: 0, backgroundColor: c }, anim]} />;
+    f.set(withDelay(retraso, withTiming(1, { duration: 500, easing: curva })));
+  }, [retraso, f]);
+  const anim = useAnimatedStyle(() => ({ transform: [{ scaleX: f.value }] }));
+  return (
+    <View style={{ flexGrow: valor, flexBasis: 0 }}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c, transformOrigin: 'left' }, anim]} />
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
-  mono: { fontFamily: font.mono, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.gris },
-  boton: { paddingVertical: 14, paddingHorizontal: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  botonPequeno: { paddingVertical: 9, paddingHorizontal: 13 },
-  botonTexto: { fontFamily: font.monoBold, fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase' },
+  marca: { fontFamily: font.mono, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.gris },
+  etiqueta: { fontFamily: font.uiBold, fontSize: 13, lineHeight: 18, color: color.gris },
+  boton: { paddingVertical: 13, paddingHorizontal: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  botonPequeno: { paddingVertical: 8, paddingHorizontal: 14 },
+  botonTexto: { fontFamily: font.uiBold, fontSize: 15 },
   chip: { borderWidth: 2, borderColor: color.tinta, paddingVertical: 8, paddingHorizontal: 12, minWidth: 64 },
-  chipTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: color.tinta },
+  chipTexto: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   chipDetalle: { fontFamily: font.ui, fontSize: 11, color: color.gris, marginTop: 2 },
   tag: { backgroundColor: color.azulSuave, paddingVertical: 4, paddingHorizontal: 9, alignSelf: 'flex-start' },
   tagTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.cobalto },

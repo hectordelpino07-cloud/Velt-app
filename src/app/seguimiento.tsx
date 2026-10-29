@@ -37,14 +37,12 @@ export default function Seguimiento() {
 
   return (
     <View>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>
-          {'// '}Seguimiento · {tareas.length} {tareas.length === 1 ? 'tarea' : 'tareas'}
+      <View style={{ marginBottom: 28 }}>
+        <TitularRevela texto={'Quién tiene\nqué entre manos.'} tam={ancho ? 48 : 30} />
+        <Mono style={{ marginTop: 10, fontSize: 14 }}>
+          {tareas.length} {tareas.length === 1 ? 'tarea' : 'tareas'}
           {retrasadas ? ` · ${retrasadas} con retraso` : ''}
         </Mono>
-      </Animated.View>
-      <View style={{ marginBottom: 28 }}>
-        <TitularRevela texto={'Quién tiene\nqué entre manos.'} tam={ancho ? 68 : 38} />
       </View>
 
       <Animated.View entering={entra(2)} style={[s.resumen, cortado(24)]}>
@@ -117,7 +115,7 @@ export default function Seguimiento() {
                 </View>
                 {lista.length === 0 && <Text style={s.vacio}>Nada por aquí.</Text>}
                 {lista.map((t) => (
-                  <Animated.View key={t.id} entering={entra(0, 100)} exiting={sale} layout={recoloca}>
+                  <Animated.View key={t.id} exiting={sale} layout={recoloca}>
                     <Fila t={t} />
                   </Animated.View>
                 ))}
@@ -208,19 +206,19 @@ const s = StyleSheet.create({
   bloques: { flexDirection: 'row', gap: 32, marginTop: 36, alignItems: 'flex-start' },
   columnas: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 10, marginBottom: 6 },
-  cabTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.tinta },
+  cabTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   cabSub: { fontFamily: font.mono, fontSize: 11, color: color.gris },
   cabN: { fontFamily: font.display, fontSize: 22, color: color.cobalto },
   persona: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.borde },
   personaNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   personaRol: { fontFamily: font.ui, color: color.gris, fontSize: 12 },
-  personaN: { fontFamily: font.monoBold, fontSize: 12, color: color.tinta, textTransform: 'uppercase' },
+  personaN: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   nota: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.gris, marginTop: 12 },
   vacio: { fontFamily: font.ui, fontSize: 13, color: color.gris, paddingVertical: 12 },
   fila: { flexDirection: 'row', gap: 12, backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 14, marginTop: 8 },
   titulo: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   sub: { fontFamily: font.ui, fontSize: 12, color: color.gris, marginTop: 2 },
-  marcaDuda: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: color.tinta, backgroundColor: color.lima, paddingHorizontal: 6, paddingVertical: 3 },
+  marcaDuda: { fontFamily: font.uiBold, fontSize: 12, color: color.tinta, backgroundColor: color.lima, paddingHorizontal: 6, paddingVertical: 3 },
   dudaTarea: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta, marginTop: 2 },
   duda: { fontFamily: font.displayBold, fontSize: 18, lineHeight: 24, color: color.tinta, marginTop: 14 },
   responder: { flexDirection: 'row', gap: 10, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' },

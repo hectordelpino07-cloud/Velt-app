@@ -32,12 +32,10 @@ export default function MaterialPantalla() {
 
   return (
     <View style={{ maxWidth: 1100 }}>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 14 }}>
-          {'// '}{CENTRO} · {unidades(materiales)} unidades
-        </Mono>
-      </Animated.View>
-      <TitularRevela texto={'Material\ndel centro.'} tam={ancho ? 76 : 44} />
+      <TitularRevela texto="Material del centro." tam={ancho ? 48 : 30} />
+      <Mono style={{ marginTop: 10, fontSize: 14 }}>
+        {CENTRO} · {unidades(materiales)} unidades
+      </Mono>
 
       <Animated.View entering={entra(2, 150)} style={[s.resumen, cortado(24), !ancho && { flexDirection: 'column' }]}>
         <Dato n={enAulas} l="En aulas, funcionando" />
@@ -64,7 +62,7 @@ export default function MaterialPantalla() {
       {tipos.map((t, ti) => {
         const lista = visibles.filter((m) => m.tipo === t.id);
         return (
-          <Animated.View key={t.id} entering={entra(ti, 250)} layout={recoloca} style={{ marginTop: 26 }}>
+          <Animated.View key={t.id} layout={recoloca} style={{ marginTop: 26 }}>
             <View style={s.cabecera}>
               <Text style={s.cabTexto}>{t.plural}</Text>
               <Text style={s.cabSub}>{unidades(lista)} unidades</Text>
@@ -123,7 +121,7 @@ function FilaMaterial({ m }: { m: Material }) {
   };
 
   return (
-    <Animated.View entering={entra(0)} exiting={sale} layout={recoloca} style={[s.fila, m.estado === 'averiado' && { borderLeftColor: color.rojo }]}>
+    <Animated.View exiting={sale} layout={recoloca} style={[s.fila, m.estado === 'averiado' && { borderLeftColor: color.rojo }]}>
       <View style={s.filaArriba}>
         <View style={{ flex: 1, minWidth: 180 }}>
           <Text style={s.nombre}>
@@ -293,9 +291,9 @@ const s = StyleSheet.create({
   barra: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 22 },
   filtro: { borderWidth: 1.5, borderColor: color.tinta, paddingVertical: 7, paddingHorizontal: 11 },
   filtroOn: { backgroundColor: color.tinta },
-  filtroTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.tinta },
+  filtroTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 10, marginBottom: 6 },
-  cabTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.tinta },
+  cabTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   cabSub: { fontFamily: font.mono, fontSize: 11, color: color.gris },
   vacio: { fontFamily: font.ui, fontSize: 14, color: color.gris, marginTop: 24 },
   fila: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, borderLeftWidth: 4, borderLeftColor: color.cobalto, padding: 14, marginTop: 8 },
@@ -304,10 +302,10 @@ const s = StyleSheet.create({
   cantidad: { fontFamily: font.ui, color: color.gris },
   lugar: { fontFamily: font.ui, fontSize: 13, color: color.gris, marginTop: 3 },
   nota: { fontFamily: font.ui, fontSize: 12, color: color.rojo, marginTop: 3 },
-  estado: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', paddingHorizontal: 8, paddingVertical: 4 },
+  estado: { fontFamily: font.uiBold, fontSize: 12, paddingHorizontal: 8, paddingVertical: 4 },
   acciones: { flexDirection: 'row', gap: 4 },
   accion: { paddingVertical: 6, paddingHorizontal: 8 },
-  accionTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: color.tinta, textDecorationLine: 'underline' },
+  accionTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta, textDecorationLine: 'underline' },
   elegir: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12, padding: 12, backgroundColor: color.crema },
   opcion: { borderWidth: 1, borderColor: color.borde, backgroundColor: color.blanco, paddingVertical: 6, paddingHorizontal: 10 },
   opcionOn: { backgroundColor: color.cobalto, borderColor: color.cobalto },
@@ -318,7 +316,7 @@ const s = StyleSheet.create({
   nuevoChip: { borderWidth: 1, borderColor: '#3A3F52', paddingVertical: 6, paddingHorizontal: 10 },
   nuevoChipOn: { backgroundColor: color.lima, borderColor: color.lima },
   nuevoChipTexto: { fontFamily: font.uiMedium, fontSize: 13, color: color.crema },
-  nuevoEtiqueta: { fontFamily: font.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.grisClaro, marginTop: 14, marginRight: 6 },
+  nuevoEtiqueta: { fontFamily: font.uiMedium, fontSize: 13, color: color.grisClaro, marginTop: 14, marginRight: 6 },
   paso: { width: 32, height: 32, backgroundColor: color.crema, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   pasoTexto: { fontFamily: font.monoBold, fontSize: 18, color: color.tinta },
   cuantos: { fontFamily: font.display, fontSize: 24, color: color.crema, minWidth: 40, textAlign: 'center', marginTop: 10 },

@@ -1,56 +1,73 @@
 // Piezas con movimiento propio: titulares que suben desde una máscara,
 // la entrada de la app con el logo y el control de deslizar para confirmar.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityActionEvent, LayoutChangeEvent, PanResponder, StyleProp, StyleSheet, Text, TextStyle, View } from 'react-native';
+import { AccessibilityActionEvent, LayoutChangeEvent, PanResponder, Platform, StyleProp, StyleSheet, Text, TextStyle, View } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { curva, vibra } from '../lib/motion';
 import { color, font } from '../lib/theme';
 import { cortado, Logo } from './ui';
 
-// Titular que entra línea a línea, subiendo desde detrás de una máscara
+// Titular de pantalla. Con `anima` entra línea a línea desde detrás de una
+// máscara: se reserva para el momento de la app (Hoy, Enviado, la entrada).
+// En las pantallas de trabajo es estático: se ven muchas veces al día.
 export function TitularRevela({
   texto,
   tam = 44,
   retraso = 0,
+  anima,
   style,
 }: {
   texto: string;
   tam?: number;
   retraso?: number;
+  anima?: boolean;
   style?: StyleProp<TextStyle>;
 }) {
   const lineas = texto.split('\n');
+  if (!anima) {
+    return (
+      <Text accessibilityRole="header" style={[estiloTitular(tam), style]}>
+        {texto}
+      </Text>
+    );
+  }
   return (
     <View accessible accessibilityRole="header" accessibilityLabel={texto.replace(/\n/g, ' ')}>
       {lineas.map((l, i) => (
-        <Linea key={`${l}-${i}`} texto={l} tam={tam} retraso={retraso + i * 90} style={style} />
+        <Linea key={`${l}-${i}`} texto={l} tam={tam} retraso={retraso + i * 70} style={style} />
       ))}
     </View>
   );
 }
 
+const estiloTitular = (tam: number): TextStyle => ({
+  fontFamily: font.display,
+  fontSize: tam,
+  lineHeight: tam * 0.98,
+  letterSpacing: -tam * 0.025,
+  color: color.tinta,
+  textTransform: 'uppercase',
+});
+
 function Linea({ texto, tam, retraso, style }: { texto: string; tam: number; retraso: number; style?: StyleProp<TextStyle> }) {
   const p = useSharedValue(0);
   useEffect(() => {
-    p.set(withDelay(retraso, withTiming(1, { duration: 820, easing: curva })));
+    p.set(withDelay(retraso, withTiming(1, { duration: 600, easing: curva })));
   }, [p, retraso]);
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: (1 - p.value) * tam * 1.1 }] }));
   return (
     <View style={{ overflow: 'hidden', paddingBottom: tam * 0.06 }}>
       <Animated.Text
-        style={[
-          { fontFamily: font.display, fontSize: tam, lineHeight: tam * 0.95, letterSpacing: -tam * 0.025, color: color.tinta, textTransform: 'uppercase' },
-          style,
-          anim,
-        ]}
+        style={[estiloTitular(tam), style, anim]}
       >
         {texto}
       </Animated.Text>
@@ -70,12 +87,12 @@ export function Intro() {
   useEffect(() => {
     if (!visible) return;
     introVista = true;
-    logo.set(withTiming(1, { duration: 700, easing: curva }));
+    logo.set(withTiming(1, { duration: 500, easing: curva }));
     cortina.set(
       withDelay(
-      1500,
-      withTiming(1, { duration: 750, easing: curva }, (fin) => {
-          if (fin) runOnJS(setVisible)(false);
+        1100,
+        withTiming(1, { duration: 600, easing: curva }, (fin) => {
+          if (fin) scheduleOnRN(setVisible, false);
         }),
       ),
     );
@@ -83,7 +100,7 @@ export function Intro() {
 
   const logoAnim = useAnimatedStyle(() => ({
     opacity: logo.value,
-    transform: [{ scale: interpolate(logo.value, [0, 1], [0.7, 1]) }, { translateY: interpolate(cortina.value, [0, 1], [0, -60]) }],
+    transform: [{ scale: interpolate(logo.value, [0, 1], [0.92, 1]) }, { translateY: interpolate(cortina.value, [0, 1], [0, -60]) }],
   }));
   const tintaAnim = useAnimatedStyle(() => ({ transform: [{ translateY: `${-cortina.value * 100}%` as `${number}%` }] }));
   const cobaltoAnim = useAnimatedStyle(() => ({
@@ -98,9 +115,9 @@ export function Intro() {
         <Animated.View style={[{ alignItems: 'center' }, logoAnim]}>
           <Logo tam={88} texto={false} />
           <View style={{ marginTop: 26 }}>
-            <TitularRevela texto="VELT" tam={56} retraso={250} style={{ color: color.crema, letterSpacing: -1 }} />
+            <TitularRevela texto="VELT" tam={56} retraso={180} anima style={{ color: color.crema, letterSpacing: -1 }} />
           </View>
-          <Text style={s.introSub}>{'// '}Escolar</Text>
+          <Text style={s.introSub}>Escolar</Text>
         </Animated.View>
       </Animated.View>
     </View>
@@ -108,8 +125,93 @@ export function Intro() {
 }
 
 // «Desliza para confirmar»: un gesto que no se hace sin querer y que da
-// sensación de cerrar algo. Con lector de pantalla se activa como un botón.
-export function Deslizar({
+// sensación de cerrar algo. El arrastre corre en el hilo de la interfaz
+// (Gesture Handler + Reanimated); basta con un gesto rápido aunque no llegue
+// al final. Con lector de pantalla se activa como un botón.
+type PropsDeslizar = { texto: string; textoHecho: string; onConfirmar: () => void; tono?: string };
+
+// En el móvil, el arrastre va con Gesture Handler en el hilo de la interfaz. En
+// la web se usa PanResponder, que es el que responde de forma fiable al ratón.
+export function Deslizar(props: PropsDeslizar) {
+  return Platform.OS === 'web' ? <DeslizarWeb {...props} /> : <DeslizarNativo {...props} />;
+}
+
+function DeslizarNativo({
+  texto,
+  textoHecho,
+  onConfirmar,
+  tono = color.lima,
+}: {
+  texto: string;
+  textoHecho: string;
+  onConfirmar: () => void;
+  tono?: string;
+}) {
+  const ASA = 54;
+  const [ancho, setAncho] = useState(0);
+  const [hecho, setHecho] = useState(false);
+  const x = useSharedValue(0);
+  const max = useSharedValue(0);
+  useEffect(() => {
+    max.set(Math.max(0, ancho - ASA - 4));
+  }, [ancho, max]);
+
+  const completar = () => {
+    if (hecho) return;
+    setHecho(true);
+    vibra('exito');
+    setTimeout(onConfirmar, 320);
+  };
+
+  const gesto = usePanGesture({
+    activeOffsetX: [-8, 8],
+    failOffsetY: [-12, 12],
+    onUpdate: (e) => {
+      x.set(Math.min(max.get(), Math.max(0, e.translationX)));
+    },
+    onDeactivate: (e) => {
+      // Llegar al 70 % o lanzar con fuerza hacia la derecha confirma
+      if (e.translationX > max.get() * 0.7 || e.velocityX > 800) {
+        x.set(withTiming(max.get(), { duration: 160, easing: curva }));
+        scheduleOnRN(completar);
+      } else {
+        x.set(withSpring(0, { duration: 300, dampingRatio: 0.8 }));
+      }
+    },
+  });
+
+  const asaAnim = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  // El relleno ocupa toda la pista y se desplaza: no se anima el ancho
+  const rellenoAnim = useAnimatedStyle(() => ({ transform: [{ translateX: x.value + ASA + 2 - ancho }] }));
+  const textoAnim = useAnimatedStyle(() => ({ opacity: max.value ? 1 - Math.min(1, x.value / (max.value * 0.6)) : 1 }));
+
+  const accion = (e: AccessibilityActionEvent) => {
+    if (e.nativeEvent.actionName === 'activate') completar();
+  };
+
+  return (
+    <View
+      onLayout={(e: LayoutChangeEvent) => setAncho(e.nativeEvent.layout.width)}
+      style={[s.pista, cortado(10)]}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={texto}
+      accessibilityActions={[{ name: 'activate' }]}
+      onAccessibilityAction={accion}
+    >
+      <Animated.View style={[s.relleno, { width: ancho, backgroundColor: tono }, rellenoAnim]} />
+      <Animated.Text style={[s.pistaTexto, textoAnim]}>{hecho ? '' : texto}</Animated.Text>
+      {hecho && <Text style={[s.pistaTexto, { color: color.tinta }]}>{textoHecho}</Text>}
+      <GestureDetector gesture={gesto}>
+        <Animated.View style={[s.asa, { width: ASA }, asaAnim, cortado(8)]}>
+          <Text style={s.asaTexto}>{hecho ? '✓' : '→'}</Text>
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
+}
+
+function DeslizarWeb({
   texto,
   textoHecho,
   onConfirmar,
@@ -200,10 +302,8 @@ const s = StyleSheet.create({
     left: 56,
     right: 0,
     textAlign: 'center',
-    fontFamily: font.monoBold,
-    fontSize: 12,
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
+    fontFamily: font.uiBold,
+    fontSize: 15,
     color: color.grisClaro,
   },
   asa: { position: 'absolute', left: 2, top: 2, bottom: 2, backgroundColor: color.crema, alignItems: 'center', justifyContent: 'center', cursor: 'grab' } as never,

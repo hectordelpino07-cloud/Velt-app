@@ -2,13 +2,13 @@
 // Mientras no haya inicio de sesión, «Ver como» permite probar cada perfil.
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated, { SlideOutRight, ZoomIn } from 'react-native-reanimated';
+import Animated, { SlideOutRight } from 'react-native-reanimated';
 import { Deslizar, TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
 import { activos, DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
-import { entra, recoloca } from '../lib/motion';
+import { asoma, entra, recoloca } from '../lib/motion';
 import { Tarea, useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -47,12 +47,11 @@ export default function MisTareas() {
       </Animated.View>
 
       <Animated.View key={yo} entering={entra(1)}>
-        <Mono style={{ marginTop: 30, marginBottom: 12 }}>
-          {'// '}{p.rol} · {fecha}
-        </Mono>
-        <View style={{ marginBottom: 22 }}>
-          <TitularRevela texto={`Hola,
-${p.nombre}.`} tam={ancho ? 64 : 44} />
+        <View style={{ marginTop: 28, marginBottom: 22 }}>
+          <TitularRevela texto={`Hola, ${p.nombre}.`} tam={ancho ? 48 : 34} />
+          <Mono style={{ marginTop: 10, fontSize: 14 }}>
+            {p.materia || p.rol} · {fecha}
+          </Mono>
         </View>
 
         <View style={[s.dia, cortado(22)]}>
@@ -85,7 +84,7 @@ ${p.nombre}.`} tam={ancho ? 64 : 44} />
       </Animated.View>
 
       {activas.length === 0 ? (
-        <Animated.View key={`vacio-${yo}`} entering={ZoomIn.springify().damping(14)} style={{ marginTop: 28 }}>
+        <Animated.View key={`vacio-${yo}`} entering={asoma()} style={{ marginTop: 28 }}>
           <Titular tam={ancho ? 44 : 30} style={{ color: color.cobalto }}>
             Nada pendiente.
           </Titular>
@@ -94,7 +93,7 @@ ${p.nombre}.`} tam={ancho ? 64 : 44} />
       ) : (
         <View style={{ gap: 18, marginTop: 26 }}>
           {activas.map((t, i) => (
-            <Animated.View key={t.id} entering={entra(i, 160)} exiting={SlideOutRight.duration(320)} layout={recoloca}>
+            <Animated.View key={t.id} entering={entra(i, 160)} exiting={SlideOutRight.duration(220)} layout={recoloca}>
               <TarjetaTarea t={t} />
             </Animated.View>
           ))}
@@ -127,7 +126,7 @@ function TarjetaTarea({ t }: { t: Tarea }) {
           {'// '}{confirmada ? 'Confirmada' : 'Nueva tarea'} · de {DIRECTOR.nombre}
         </Mono>
         {confirmada && (
-          <Animated.View entering={ZoomIn.springify().damping(12)} style={[s.sello, cortado(6)]}>
+          <Animated.View entering={asoma()} style={[s.sello, cortado(6)]}>
             <Text style={s.selloTexto}>✓ Confirmada</Text>
           </Animated.View>
         )}
@@ -218,15 +217,15 @@ const s = StyleSheet.create({
   personaNombre: { fontFamily: font.uiMedium, fontSize: 14, color: color.tinta },
   dia: { backgroundColor: color.tinta, padding: 22 },
   diaN: { fontFamily: font.display, fontSize: 64, lineHeight: 66, letterSpacing: -2, color: color.crema },
-  diaTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: color.lima },
+  diaTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.lima },
   vacio: { fontFamily: font.ui, fontSize: 15, lineHeight: 22, color: color.gris, marginTop: 10, maxWidth: 460 },
   porque: { fontFamily: font.ui, fontSize: 13, lineHeight: 19, color: color.grisClaro, marginTop: 12 },
   sello: { backgroundColor: color.lima, paddingVertical: 4, paddingHorizontal: 8 },
-  selloTexto: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: color.tinta },
+  selloTexto: { fontFamily: font.uiBold, fontSize: 12, color: color.tinta },
   hilo: { marginTop: 16, borderLeftWidth: 3, borderLeftColor: color.lima, paddingLeft: 12 },
-  hiloQuien: { fontFamily: font.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.grisClaro },
+  hiloQuien: { fontFamily: font.uiMedium, fontSize: 13, color: color.grisClaro },
   hiloTexto: { fontFamily: font.ui, fontSize: 14, lineHeight: 20, color: color.crema, marginTop: 3 },
   botones: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  duda: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.grisClaro, paddingVertical: 6 },
+  duda: { fontFamily: font.uiBold, fontSize: 13, color: color.grisClaro, paddingVertical: 6 },
   entrada: { backgroundColor: '#1A1D27', color: color.crema, fontFamily: font.ui, fontSize: 15, padding: 12, outlineStyle: 'none' } as never,
 });

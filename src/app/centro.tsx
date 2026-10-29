@@ -5,13 +5,13 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Contador, cortado, Mono } from '../components/ui';
 import { Clase, esClase, esLugar, franjaActual, TIPOS_MATERIAL } from '../data/centro';
 import { activos, CENTRO, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
-import { entra, recoloca, vibra } from '../lib/motion';
+import { asoma, entra, recoloca, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -189,12 +189,10 @@ export default function Centro() {
 
   return (
     <View>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 14 }}>
-          {'// '}{CENTRO} · {plantas.length} plantas · {espacios.length} espacios
-        </Mono>
-      </Animated.View>
-      <TitularRevela texto={'Mapa\ndel centro.'} tam={ancho ? 76 : 44} />
+      <TitularRevela texto="Mapa del centro." tam={ancho ? 48 : 30} />
+      <Mono style={{ marginTop: 10, fontSize: 14 }}>
+        {CENTRO} · {plantas.length} plantas · {espacios.length} espacios
+      </Mono>
 
       {/* Franjas: la línea del día. Al tocar una, el centro se mueve. */}
       <Animated.View entering={entra(2, 150)} style={{ marginTop: 26 }}>
@@ -318,9 +316,8 @@ export default function Centro() {
                   accessibilityLabel={`${FRANJAS[i].nombre}: ${n} aulas`}
                 >
                   <View style={s.barraHueco}>
-                    <Animated.View
-                      layout={recoloca}
-                      style={[s.barra, { height: `${(n / aulas.length) * 100}%` }, i === franja ? { backgroundColor: color.cobalto } : null]}
+                    <View
+                      style={[s.barra, { height: `${(n / Math.max(1, aulas.length)) * 100}%` }, i === franja ? { backgroundColor: color.cobalto } : null]}
                     />
                   </View>
                   <Text style={[s.barraEtiqueta, i === franja && { color: color.cobalto }]}>{FRANJAS[i].inicio.slice(0, 2)}</Text>
@@ -419,7 +416,7 @@ export default function Centro() {
                       ? { bg: color.azulSuave, tx: color.cobalto }
                       : { bg: '#E7E3D8', tx: color.tinta };
               return (
-                <Animated.View key={x.id} entering={entra(i, 300)} layout={recoloca}>
+                <Animated.View key={x.id} layout={recoloca}>
                   <Pressable
                     onPress={() => setFoco((fo) => (fo === x.id ? null : x.id))}
                     accessibilityRole="button"
@@ -433,7 +430,7 @@ export default function Centro() {
                       </Text>
                       <Text style={s.personaRol}>{x.materia || x.rol}</Text>
                     </View>
-                    <Animated.View key={`${x.id}-${u.texto}`} entering={ZoomIn.duration(240)}>
+                    <Animated.View key={`${x.id}-${u.texto}`} entering={asoma()}>
                       <Text style={[s.lugar, { backgroundColor: tono.bg, color: tono.tx }]}>{u.texto}</Text>
                     </Animated.View>
                   </Pressable>
@@ -464,7 +461,7 @@ function CeldaMapa({ id, c, franja, orden, foco, movil }: { id: string; c: Celda
       {/* La clave cambia con la franja: cada celda vuelve a entrar, en ola */}
       <Animated.View
         key={`${id}-${franja}-${c.estado}-${c.titulo}`}
-        entering={FadeIn.delay(orden * 45).duration(320)}
+        entering={FadeIn.delay(Math.min(orden, 8) * 15).duration(180)}
         style={[
           s.celdaDentro,
           { backgroundColor: e.bg, borderColor: e.borde },
@@ -495,31 +492,31 @@ const s = StyleSheet.create({
   turnoTexto: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: color.lima },
   atajos: { flexDirection: 'row', gap: 8, marginLeft: 'auto' },
   vacioPlanta: { fontFamily: font.ui, fontSize: 14, color: color.gris, paddingVertical: 20 },
-  enlace: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.lima, textDecorationLine: 'underline' },
+  enlace: { fontFamily: font.uiBold, fontSize: 13, color: color.lima, textDecorationLine: 'underline' },
   materialFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 },
-  materialTag: { fontFamily: font.mono, fontSize: 9, letterSpacing: 0.5, textTransform: 'uppercase', color: color.tinta, backgroundColor: 'rgba(11,13,20,0.07)', paddingHorizontal: 5, paddingVertical: 2 },
+  materialTag: { fontFamily: font.uiMedium, fontSize: 12, color: color.tinta, backgroundColor: 'rgba(11,13,20,0.07)', paddingHorizontal: 5, paddingVertical: 2 },
   materialMal: { backgroundColor: '#F6D4D4', color: color.rojo },
   franjas: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   franja: { borderWidth: 1.5, borderColor: color.tinta, paddingVertical: 8, paddingHorizontal: 12, minWidth: 82 },
   franjaOn: { backgroundColor: color.tinta },
   franjaHora: { fontFamily: font.monoBold, fontSize: 14, color: color.tinta },
-  franjaNombre: { fontFamily: font.mono, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: color.gris, marginTop: 2 },
+  franjaNombre: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, marginTop: 2 },
   ahoraPunto: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, backgroundColor: color.lima },
   controles: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 14, flexWrap: 'wrap' },
   cuerpo: { flexDirection: 'row', gap: 28, marginTop: 28, alignItems: 'flex-start' },
   plantas: { flexDirection: 'row', gap: 6, marginBottom: 10 },
   planta: { paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#E7E3D8' },
   plantaOn: { backgroundColor: color.tinta },
-  plantaTexto: { fontFamily: font.monoBold, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: color.tinta },
+  plantaTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   mapa: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 18 },
   fila: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pasillo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 },
   pasilloLinea: { flex: 1, borderTopWidth: 1, borderTopColor: color.borde, borderStyle: 'dashed' },
-  pasilloTexto: { fontFamily: font.mono, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: color.gris },
+  pasilloTexto: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris },
   celda: { flex: 1, minWidth: 130, minHeight: 112 },
   celdaFoco: { transform: [{ translateY: -3 }], boxShadow: `4px 4px 0 ${color.tinta}` },
   celdaDentro: { flex: 1, borderWidth: 1.5, padding: 11 },
-  celdaEstado: { fontFamily: font.monoBold, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' },
+  celdaEstado: { fontFamily: font.uiBold, fontSize: 12 },
   celdaTitulo: { fontFamily: font.uiBold, fontSize: 15, marginTop: 14 },
   celdaDetalle: { fontFamily: font.ui, fontSize: 12, lineHeight: 16, marginTop: 3 },
   leyenda: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 16 },
@@ -541,12 +538,12 @@ const s = StyleSheet.create({
   alertaTexto: { fontFamily: font.ui, fontSize: 13, color: color.crema },
   personal: { marginTop: 22 },
   cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 10, marginBottom: 6 },
-  cabTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.tinta },
+  cabTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   persona: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingHorizontal: 6, marginHorizontal: -6 },
   personaNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   personaRol: { fontFamily: font.ui, fontSize: 12, color: color.gris },
-  lugar: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', paddingHorizontal: 7, paddingVertical: 4, maxWidth: 190, textAlign: 'right' },
+  lugar: { fontFamily: font.uiBold, fontSize: 12, paddingHorizontal: 7, paddingVertical: 4, maxWidth: 190, textAlign: 'right' },
   ausenteBoton: { marginLeft: 44, paddingVertical: 4, alignSelf: 'flex-start' },
-  ausenteTexto: { fontFamily: font.mono, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: color.gris, textDecorationLine: 'underline' },
+  ausenteTexto: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, textDecorationLine: 'underline' },
   nota: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.gris, marginTop: 14, borderTopWidth: 1, borderTopColor: color.borde, paddingTop: 10 },
 });

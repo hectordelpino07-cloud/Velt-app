@@ -45,12 +45,12 @@ export default function Hoy() {
 
   return (
     <View>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 14 }}>
-          {'// '}{fecha} · {CENTRO}
+      <TitularRevela texto={`${saludo()},\n${DIRECTOR.nombre}.`} tam={ancho ? 76 : 42} anima />
+      <Animated.View entering={entra(0, 300)}>
+        <Mono style={{ marginTop: 10, fontSize: 14 }}>
+          {fecha.charAt(0).toUpperCase() + fecha.slice(1)} · {CENTRO}
         </Mono>
       </Animated.View>
-      <TitularRevela texto={`${saludo()},\n${DIRECTOR.nombre}.`} tam={ancho ? 76 : 42} />
 
       {/* Parte del día: el número grande es lo único que hay que mirar */}
       <Animated.View entering={entra(2, 150)} style={[s.parte, cortado(28), { marginTop: 30 }]}>
@@ -60,7 +60,7 @@ export default function Hoy() {
         <View style={[s.parteFila, !ancho && { flexDirection: 'column', gap: 26 }]}>
           <View style={{ flex: ancho ? 1.3 : undefined }}>
             <Mono style={{ color: color.lima }}>{'// '}Parte del día</Mono>
-            <Contador valor={sinConfirmar} style={[s.parteN, { fontSize: ancho ? 150 : 104, lineHeight: ancho ? 150 : 104 }]} />
+            <Contador valor={sinConfirmar} anima style={[s.parteN, { fontSize: ancho ? 150 : 104, lineHeight: ancho ? 150 : 104 }]} />
             <Text style={s.parteTexto}>
               {sinConfirmar === 0
                 ? 'Todo lo enviado está confirmado.'
@@ -117,7 +117,7 @@ export default function Hoy() {
           i={0}
           bg={color.cobalto}
           texto={color.blanco}
-          etiqueta="// 01 · Lo principal"
+          etiqueta="Lo principal"
           titulo={'Escribe\nuna idea'}
           sub="VELT la reparte en tareas."
           onPress={() => router.navigate('/idea')}
@@ -126,7 +126,7 @@ export default function Hoy() {
           i={1}
           bg={color.lima}
           texto={color.tinta}
-          etiqueta={dudas ? `// ${dudas} sin responder` : '// 02 · En movimiento'}
+          etiqueta={dudas ? `${dudas} sin responder` : 'En movimiento'}
           titulo={dudas ? 'Responde\ndudas' : 'Mapa del\ncentro'}
           sub={dudas ? 'Tu equipo te espera.' : 'Qué aula está libre y dónde está cada uno.'}
           onPress={() => router.navigate(dudas ? '/seguimiento' : '/centro')}
@@ -249,7 +249,7 @@ function Bloque({
 const s = StyleSheet.create({
   aviso: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: color.rojo, paddingVertical: 14, paddingHorizontal: 20, marginTop: 16 },
   avisoTexto: { fontFamily: font.uiBold, fontSize: 15, color: color.blanco, flexShrink: 1 },
-  avisoFlecha: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.blanco },
+  avisoFlecha: { fontFamily: font.uiBold, fontSize: 13, color: color.blanco },
   parte: { backgroundColor: color.tinta, padding: 30, overflow: 'hidden' },
   fondoHoy: {
     position: 'absolute',
@@ -266,7 +266,7 @@ const s = StyleSheet.create({
   datoParte: { flexDirection: 'row', alignItems: 'baseline', gap: 14 },
   datoParteN: { fontFamily: font.display, fontSize: 30, color: color.crema, minWidth: 44 },
   datoParteL: { fontFamily: font.ui, fontSize: 14, color: color.grisClaro },
-  parteBarra: { fontFamily: font.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: color.grisClaro, marginTop: 10 },
+  parteBarra: { fontFamily: font.uiMedium, fontSize: 13, color: color.grisClaro, marginTop: 10 },
   acciones: { flexDirection: 'row', gap: 16, marginTop: 16 },
   bloque: { padding: 24, minHeight: 210, justifyContent: 'space-between' },
   bloqueTitulo: { fontFamily: font.display, fontSize: 40, lineHeight: 38, letterSpacing: -1, textTransform: 'uppercase', marginVertical: 18 },
@@ -274,19 +274,19 @@ const s = StyleSheet.create({
   bloqueFlecha: { fontFamily: font.monoBold, fontSize: 28 },
   bajo: { flexDirection: 'row', gap: 40, marginTop: 44 },
   cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', borderTopWidth: 3, borderTopColor: color.tinta, paddingTop: 10, marginBottom: 18 },
-  cabTexto: { fontFamily: font.monoBold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: color.tinta },
+  cabTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   cabSub: { fontFamily: font.mono, fontSize: 11, color: color.gris },
   vacio: { fontFamily: font.ui, fontSize: 14, color: color.gris },
   linea: { flexDirection: 'row', gap: 14 },
   lineaHora: { width: 58, alignItems: 'flex-end' },
   hora: { fontFamily: font.monoBold, fontSize: 15, color: color.tinta },
-  dia: { fontFamily: font.mono, fontSize: 11, color: color.gris, textTransform: 'uppercase', marginTop: 2 },
+  dia: { fontFamily: font.uiMedium, fontSize: 13, color: color.gris, marginTop: 2 },
   eje: { width: 14, alignItems: 'center' },
   punto: { width: 12, height: 12, marginTop: 4 },
   trazo: { flex: 1, width: 2, backgroundColor: color.borde, marginTop: 4 },
   lineaTitulo: { fontFamily: font.uiBold, fontSize: 16, color: color.tinta },
   lineaQuien: { fontFamily: font.ui, fontSize: 13, color: color.gris },
-  estado: { fontFamily: font.monoBold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase', color: color.tinta, paddingHorizontal: 6, paddingVertical: 3 },
+  estado: { fontFamily: font.uiBold, fontSize: 12, color: color.tinta, paddingHorizontal: 6, paddingVertical: 3 },
   rejilla: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   miembro: { width: 132, backgroundColor: color.blanco, padding: 14 },
   miembroNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta, marginTop: 10 },
