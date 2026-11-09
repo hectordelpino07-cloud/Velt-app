@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VELT Escolar · La coordinación diaria de tu centro</title>
+<meta name="description" content="VELT Escolar convierte las ideas de dirección en tareas claras, cubre guardias en un clic y muestra qué aula está libre. Complementa a Séneca; no guarda datos de alumnos.">
+<link rel="icon" href="img/icono.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,800;125,900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cobalto: #1A34FD; --tinta: #0B0D14; --crema: #F4F1EA; --lima: #C6F24E;
+    --gris: #4F5464; --gris-claro: #B9BDCB; --borde: #DAD5C8; --blanco: #fff;
+    --margen: clamp(20px, 4vw, 64px);
+    --corte: polygon(0 0, 100% 0, 100% calc(100% - var(--c, 22px)), calc(100% - var(--c, 22px)) 100%, 0 100%);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--crema); color: var(--tinta); font: 400 18px/1.55 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--lima); color: var(--tinta); }
+  :focus-visible { outline: 2px solid var(--cobalto); outline-offset: 3px; }
+  img { display: block; max-width: 100%; height: auto; }
+  a { color: inherit; }
+
+  .display { font-family: Archivo, sans-serif; font-stretch: 125%; font-weight: 900; text-transform: uppercase; line-height: .92; letter-spacing: -.035em; }
+  .corte { clip-path: var(--corte); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* Barra */
+  .barra { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px var(--margen); }
+  .marca { display: flex; align-items: center; gap: 12px; text-decoration: none; font-family: Archivo, sans-serif; font-stretch: 125%; font-weight: 900; font-size: 24px; letter-spacing: -.02em; }
+  .marca svg { width: 36px; height: 36px; }
+  .enlaces { display: flex; align-items: center; gap: 32px; font-weight: 500; font-size: 16px; }
+  .enlaces a { text-decoration: none; }
+  .enlaces a:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .boton { display: inline-flex; align-items: center; gap: 12px; padding: 16px 26px; background: var(--cobalto); color: var(--blanco); font-weight: 600; font-size: 17px; text-decoration: none; --c: 12px; clip-path: var(--corte); transition: transform .16s cubic-bezier(.23,1,.32,1); }
+  .boton:active { transform: scale(.97); }
+  .boton.tinta { background: var(--tinta); color: var(--lima); }
+  .boton.pequeno { padding: 11px 18px; font-size: 15px; }
+
+  /* Portada */
+  .portada { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center; padding: 56px var(--margen) 120px; }
+  .portada h1 { font-size: clamp(52px, 7.4vw, 112px); }
+  .portada .entrada { font-size: 21px; line-height: 1.5; max-width: 34ch; margin: 32px 0 40px; }
+  .acciones { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .acciones .nota { font-size: 15px; color: var(--gris); max-width: 28ch; }
+  .escena { position: relative; display: flex; justify-content: center; }
+  .movil { width: 340px; background: var(--tinta); padding: 12px; --c: 34px; clip-path: var(--corte); }
+  .movil img { --c: 26px; clip-path: var(--corte); }
+  .chip { position: absolute; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--blanco); color: var(--tinta); font-weight: 600; font-size: 15px; white-space: nowrap; --c: 10px; clip-path: var(--corte); }
+  .chip i { width: 10px; height: 10px; background: var(--lima); flex: none; }
+  .chip.azul { background: var(--cobalto); color: var(--blanco); }
+  .chip.tinta { background: var(--tinta); color: var(--crema); }
+  .chip.tinta i { background: var(--lima); }
+  .chip.azul i { background: var(--lima); }
+  .c1 { left: -10px; top: 18%; } .c2 { right: -18px; top: 46%; } .c3 { left: 4px; bottom: 14%; }
+
+  /* Problema: campo cobalto */
+  .problema { background: var(--cobalto); color: var(--blanco); padding: 120px var(--margen); display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  .problema h2 { font-size: clamp(40px, 5.2vw, 76px); }
+  .problema p { font-size: 21px; max-width: 36ch; margin-top: 28px; color: #E3E7FF; }
+  .collage { position: relative; height: 560px; }
+  .collage figure { position: absolute; background: var(--crema); padding: 8px; --c: 18px; clip-path: var(--corte); }
+  .collage img { --c: 14px; clip-path: var(--corte); }
+  .f1 { left: 0; top: 0; width: 72%; } .f2 { right: 0; bottom: 0; width: 64%; }
+  .collage .chip { z-index: 2; }
+  .c4 { left: 6%; bottom: 26%; } .c5 { right: 4%; top: 30%; }
+
+  /* Cómo funciona */
+  .como { padding: 140px var(--margen) 120px; }
+  .como h2 { font-size: clamp(40px, 5.2vw, 76px); max-width: 16ch; }
+  .pasos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 64px; }
+  .paso h3 { font-size: 24px; font-weight: 600; margin-bottom: 10px; letter-spacing: -.01em; }
+  .paso p { color: var(--gris); }
+  .paso .cifra { font-family: Archivo, sans-serif; font-stretch: 125%; font-weight: 900; font-size: 64px; line-height: 1; color: var(--cobalto); margin-bottom: 18px; }
+  .grande { margin-top: 72px; background: var(--tinta); padding: 14px; --c: 30px; clip-path: var(--corte); }
+  .grande img { --c: 22px; clip-path: var(--corte); }
+
+  /* Mapa */
+  .mapa { display: grid; grid-template-columns: .8fr 1.2fr; gap: 64px; align-items: center; padding: 40px var(--margen) 140px; }
+  .mapa h2 { font-size: clamp(40px, 5vw, 72px); }
+  .mapa p { font-size: 20px; margin-top: 24px; max-width: 34ch; color: var(--gris); }
+  .mapa ul { list-style: none; margin-top: 32px; display: grid; gap: 14px; }
+  .mapa li { display: flex; gap: 14px; align-items: baseline; font-size: 18px; }
+  .mapa li b { font-weight: 600; }
+  .mapa li::before { content: ""; width: 12px; height: 12px; background: var(--cobalto); flex: none; transform: translateY(1px); }
+  .pantalla { background: var(--blanco); padding: 10px; --c: 26px; clip-path: var(--corte); }
+  .pantalla img { --c: 18px; clip-path: var(--corte); }
+
+  /* Testimonio y Séneca */
+  .voz { background: var(--tinta); color: var(--crema); padding: 130px var(--margen); display: grid; grid-template-columns: 1.1fr .9fr; gap: 64px; align-items: center; }
+  .cita { background: var(--crema); color: var(--tinta); padding: 48px; --c: 36px; clip-path: var(--corte); }
+  .cita blockquote { font-size: 30px; line-height: 1.3; font-weight: 500; letter-spacing: -.01em; }
+  .cita footer { margin-top: 28px; display: flex; align-items: center; gap: 14px; font-size: 16px; }
+  .cita .avatar { width: 44px; height: 44px; border-radius: 50%; background: #E3E7FF; color: var(--cobalto); display: grid; place-items: center; font-weight: 600; }
+  .cita small { display: block; color: var(--gris); }
+  .seneca h2 { font-size: clamp(36px, 4.4vw, 64px); color: var(--crema); }
+  .seneca p { font-size: 20px; color: var(--gris-claro); margin-top: 24px; max-width: 36ch; }
+  .seneca p strong { color: var(--lima); font-weight: 600; }
+
+  /* Piloto */
+  .piloto { padding: 140px var(--margen); display: grid; grid-template-columns: 1.2fr .8fr; gap: 64px; align-items: end; }
+  .piloto h2 { font-size: clamp(44px, 6vw, 92px); }
+  .piloto p { font-size: 20px; color: var(--gris); max-width: 34ch; margin-bottom: 32px; }
+
+  /* Cierre */
+  .cierre { background: var(--lima); padding: 72px var(--margen) 40px; overflow: hidden; }
+  .cierre .nombre { font-size: 26vw; line-height: .78; letter-spacing: -.05em; }
+  .cierre .pie { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-top: 40px; font-size: 15px; }
+
+  @media (max-width: 900px) {
+    .enlaces a:not(.boton) { display: none; }
+    .portada, .problema, .mapa, .voz, .piloto { grid-template-columns: minmax(0, 1fr); }
+    .portada h1 { font-size: 9.8vw; }
+    .problema h2, .como h2, .mapa h2, .piloto h2 { font-size: 10vw; }
+    .seneca h2 { font-size: 9vw; }
+    .movil { width: min(300px, 82vw); }
+    .c1 { left: 0; } .c2 { right: 0; } .c3 { left: 0; }
+    .cita { padding: 32px 26px; }
+    .pasos { grid-template-columns: 1fr; }
+    .collage { height: 360px; }
+    .chip { font-size: 13px; }
+    .portada { padding-bottom: 80px; }
+    .cita blockquote { font-size: 23px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="barra">
+  <a class="marca" href="#" aria-label="VELT, inicio">
+    <svg viewBox="300 310 655 670" aria-hidden="true"><polygon points="400,324 860,324 940,408 940,760 850,852 512,852 333,965 386,834 315,758 315,408" fill="#0B0D14"/><polygon points="384,430 540,430 697,702 622,824" fill="#F4F1EA"/><polygon points="719,430 871,430 716,678 642,550" fill="#F4F1EA"/></svg>
+    VELT
+  </a>
+  <nav class="enlaces" aria-label="Principal">
+    <a href="#como">Cómo funciona</a>
+    <a href="#mapa">Mapa del centro</a>
+    <a href="#seneca">Con Séneca</a>
+    <a class="boton pequeno" href="#piloto">Pedir un piloto</a>
+  </nav>
+</header>
+
+<main>
+  <section class="portada">
+    <div>
+      <h1 class="display">Tu centro, coordinado cada mañana.</h1>
+      <p class="entrada">Dirección escribe una idea y VELT la convierte en tareas con responsable y hora, cubre las guardias y te dice qué aula está libre. El profesorado solo tiene que confirmar.</p>
+      <div class="acciones">
+        <a class="boton" data-layer="boton" href="../" >Ver VELT en marcha <span aria-hidden="true">→</span></a>
+        <p class="nota">Funciona en el navegador y en el móvil. Sin instalar nada.</p>
+      </div>
+    </div>
+    <div class="escena">
+      <div class="movil" data-layer="movil"><img src="img/movil-tareas.png" alt="La tarea de Carmen en su móvil: montar las sillas del salón de actos, con el botón de deslizar para confirmar" width="390" height="844"></div>
+      <span class="chip c1" data-layer="chip"><i></i>Guardia cubierta · 09:15</span>
+      <span class="chip azul c2" data-layer="chip"><i></i>Inés confirmó su tarea</span>
+      <span class="chip tinta c3" data-layer="chip"><i></i>Aula de Música libre</span>
+    </div>
+  </section>
+
+  <section class="problema">
+    <div>
+      <h2 class="display">Las mañanas no se organizan en un grupo de WhatsApp.</h2>
+      <p>Una ausencia a primera hora, un proyector que no enciende, un claustro que preparar. Hoy todo eso vive en mensajes sueltos y en la cabeza de jefatura. VELT lo pone en un solo sitio y le pone nombre y hora.</p>
+    </div>
+    <div class="collage">
+      <figure class="f1" data-layer="foto"><img src="img/hoy.png" alt="Pantalla «Hoy» de dirección con el parte del día" width="2880" height="2000"></figure>
+      <figure class="f2" data-layer="foto"><img src="img/material.png" alt="Pantalla de material del centro con proyectores y su estado" width="2880" height="2000"></figure>
+      <span class="chip c4" data-layer="chip"><i></i>Lucía falta hoy</span>
+      <span class="chip tinta c5" data-layer="chip"><i></i>Proyector 6 averiado</span>
+    </div>
+  </section>
+
+  <section class="como" id="como">
+    <h2 class="display">De una idea a tareas claras.</h2>
+    <div class="pasos">
+      <div class="paso">
+        <div class="cifra num">30 s</div>
+        <h3>Escribe como hablas</h3>
+        <p>«Necesito que Inés prepare el orden del día y que alguien imprima las actas». Sin formularios.</p>
+      </div>
+      <div class="paso">
+        <div class="cifra num">1</div>
+        <h3>Solo pregunta lo que falta</h3>
+        <p>Si no dices quién, VELT propone a la persona con menos carga o a quien le toca por su puesto.</p>
+      </div>
+      <div class="paso">
+        <div class="cifra num">0</div>
+        <h3>Reuniones para repartirlo</h3>
+        <p>Cada persona recibe solo lo suyo, con el porqué, y lo confirma deslizando en su móvil.</p>
+      </div>
+    </div>
+    <div class="grande" data-layer="tarjeta"><img src="img/idea.png" alt="Pantalla «Nueva idea»: el texto del director resaltado y convertido en tres tareas" width="2880" height="2000"></div>
+  </section>
+
+  <section class="mapa" id="mapa">
+    <div>
+      <h2 class="display">Qué aula está libre ahora.</h2>
+      <p>El mapa del centro se mueve con el horario: quién está en cada aula, quién está de guardia y qué material hay en cada sitio.</p>
+      <ul>
+        <li><span><b>Ausencias:</b> marcas a alguien y ves sus clases sin cubrir.</span></li>
+        <li><span><b>Guardias:</b> VELT propone quién está libre y se lo envía.</span></li>
+        <li><span><b>Material:</b> proyectores, portátiles y averías, con aviso a conserjería.</span></li>
+      </ul>
+    </div>
+    <div class="pantalla" data-layer="tarjeta"><img src="img/mapa.png" alt="Mapa del centro con aulas ocupadas, libres y reservadas por franja" width="2880" height="2000"></div>
+  </section>
+
+  <section class="voz" id="seneca">
+    <figure class="cita" data-layer="testimonio">
+      <blockquote>«Antes la primera hora era apagar fuegos. Ahora a las 8:20 ya sé qué clases están sin cubrir y quién va a cada una.»</blockquote>
+      <footer><span class="avatar">IS</span><span>Inés Soto, jefa de estudios<small>Caso de ejemplo del IES San Marcos, centro ficticio de la demo</small></span></footer>
+    </figure>
+    <div class="seneca">
+      <h2 class="display">Séneca es el registro. VELT es el día a día.</h2>
+      <p>No sustituye a Séneca ni a PASEN, y <strong>no guarda datos de alumnos</strong>. Es la capa de coordinación del equipo: dirección, profesorado, conserjería y secretaría.</p>
+    </div>
+  </section>
+
+  <section class="piloto" id="piloto">
+    <h2 class="display">Pruébalo un trimestre en tu centro.</h2>
+    <div>
+      <p>Configuramos contigo las plantas, el horario y el personal en una tarde. Si al final del trimestre no os ahorra tiempo, lo dejáis.</p>
+      <a class="boton tinta" href="mailto:hectordelpino07@gmail.com?subject=Piloto%20de%20VELT%20Escolar">Pedir un piloto <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+</main>
+
+<footer class="cierre">
+  <div class="nombre display" aria-hidden="true">VELT</div>
+  <div class="pie">
+    <span>VELT Escolar · La coordinación diaria de tu centro</span>
+    <span>Proyecto de Héctor del Pino · 2026</span>
+  </div>
+</footer>
+
+</body>
+</html>
