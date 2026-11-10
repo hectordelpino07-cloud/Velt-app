@@ -1,7 +1,7 @@
 import { useFonts } from 'expo-font';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
-import { Slot, router, usePathname } from 'expo-router';
+import { Redirect, Slot, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -10,21 +10,35 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Intro } from '../components/motion';
 import { Avatar, cortado, Logo, Mono } from '../components/ui';
-import { CENTRO, DIRECTOR, nombreCompleto } from '../data/equipo';
+import { CENTRO, nombreCompleto } from '../data/equipo';
 import { curva } from '../lib/motion';
 import { CentroProvider, useCentro } from '../lib/centro';
-import { useVelt, VeltProvider } from '../lib/store';
+import { useVelt, useYo, VeltProvider } from '../lib/store';
 import { ToastProvider } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
-const NAV = [
-  { ruta: '/', texto: 'Hoy', corto: 'Hoy', num: '01' },
-  { ruta: '/idea', texto: 'Nueva idea', corto: 'Idea', num: '02' },
-  { ruta: '/centro', texto: 'Mapa del centro', corto: 'Centro', num: '03' },
-  { ruta: '/material', texto: 'Material', corto: 'Material', num: '04' },
-  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo', num: '05' },
-  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas', num: '06' },
-] as const;
+type Seccion = { ruta: string; texto: string; corto: string };
+
+// Dirección y jefatura organizan el centro
+const NAV_GESTION: Seccion[] = [
+  { ruta: '/', texto: 'Hoy', corto: 'Hoy' },
+  { ruta: '/idea', texto: 'Nueva idea', corto: 'Idea' },
+  { ruta: '/horarios', texto: 'Horarios', corto: 'Horarios' },
+  { ruta: '/centro', texto: 'Mapa del centro', corto: 'Mapa' },
+  { ruta: '/material', texto: 'Material', corto: 'Material' },
+  { ruta: '/seguimiento', texto: 'Seguimiento', corto: 'Equipo' },
+];
+// El profesorado y el resto del personal ven su día, su horario y a sus compañeros
+const NAV_PERSONAL: Seccion[] = [
+  { ruta: '/', texto: 'Mi día', corto: 'Mi día' },
+  { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas' },
+  { ruta: '/horarios', texto: 'Horarios', corto: 'Horarios' },
+  { ruta: '/centro', texto: 'Mapa del centro', corto: 'Mapa' },
+  { ruta: '/equipo', texto: 'Equipo', corto: 'Equipo' },
+  { ruta: '/material', texto: 'Material', corto: 'Material' },
+];
+const MIS_TAREAS: Seccion = { ruta: '/mis-tareas', texto: 'Mis tareas', corto: 'Tareas' };
+const SOLO_GESTION = ['/idea', '/seguimiento', '/configurar'];
 
 const ALTO_NAV = 44;
 const HUECO_NAV = 4;
@@ -82,11 +96,17 @@ function Marco() {
   const { width } = useWindowDimensions();
   const ancho = width >= ANCHO_ESCRITORIO;
   const ruta = usePathname();
-  const { tareas } = useVelt();
-  const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha').length;
+  const { tareas, avisos } = useVelt();
   const { materiales, espacios } = useCentro();
+  const { yo, gestion } = useYo();
+
+  // Jefatura organiza el centro y además recibe tareas de dirección
+  const NAV = gestion ? (yo.rol === 'Jefatura' ? [NAV_GESTION[0], MIS_TAREAS, ...NAV_GESTION.slice(1)] : NAV_GESTION) : NAV_PERSONAL;
+  const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha').length;
   const averiados = materiales.filter((m) => m.estado === 'averiado').length;
-  const activo = NAV.findIndex((n) => n.ruta === ruta); // -1 en «Configurar centro»
+  const porConfirmar = tareas.filter((t) => t.responsableId === yo.id && t.estado === 'pendiente').length;
+  const sinLeer = avisos.filter((a) => a.para === yo.id && !a.leido).length;
+  const activo = NAV.findIndex((n) => n.ruta === ruta); // -1 en fichas, avisos y configurar
   const configurando = ruta === '/configurar';
 
   // El recuadro azul de la barra lateral se desliza hasta la sección activa
@@ -97,7 +117,10 @@ function Marco() {
   const indicador = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
 
   const insignia = (r: string) =>
-    r === '/seguimiento' && dudas ? dudas : r === '/material' && averiados ? averiados : 0;
+    r === '/seguimiento' && dudas ? dudas : r === '/material' && gestion && averiados ? averiados : r === '/mis-tareas' && porConfirmar ? porConfirmar : 0;
+
+  // Lo que es solo de dirección no se abre con otro perfil
+  if (!gestion && SOLO_GESTION.includes(ruta)) return <Redirect href="/" />;
 
   // Cambiar de sección es como cambiar de pestaña: sin animación, se hace
   // decenas de veces al día y tiene que sentirse inmediato
@@ -117,7 +140,7 @@ function Marco() {
               const on = i === activo;
               const num = insignia(n.ruta);
               return (
-                <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta)} accessibilityRole="link" style={s.nav}>
+                <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta as never)} accessibilityRole="link" style={s.nav}>
                   {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
                     <>
                       <Text style={[s.navTexto, (on || hovered) && { color: color.blanco }]}>{n.texto}</Text>
@@ -133,26 +156,47 @@ function Marco() {
             })}
           </View>
           <View style={{ flex: 1 }} />
+          <Pressable onPress={() => router.navigate('/avisos')} accessibilityRole="link" style={[s.nav, s.avisos, ruta === '/avisos' && { backgroundColor: '#1A1D27' }]}>
+            {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+              <>
+                <Text style={[s.navTexto, (hovered || ruta === '/avisos') && { color: color.blanco }]}>Avisos</Text>
+                {sinLeer ? (
+                  <View style={s.insignia}>
+                    <Text style={s.insigniaTexto}>{sinLeer}</Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+          </Pressable>
           <View style={s.centro}>
             <Mono style={{ color: color.grisClaro, fontSize: 12 }}>Centro</Mono>
             <Text style={s.centroNombre}>{CENTRO}</Text>
             <Text style={s.centroDato}>
               {espacios.length} espacios · {materiales.length} materiales
             </Text>
-            <Pressable onPress={() => router.navigate('/configurar')} accessibilityRole="link" style={s.configurar}>
-              {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
-                <Text style={[s.configurarTexto, (hovered || configurando) && { color: color.lima }]}>
-                  {configurando ? '● ' : ''}Configurar centro →
-                </Text>
-              )}
-            </Pressable>
+            {gestion && (
+              <Pressable onPress={() => router.navigate('/configurar')} accessibilityRole="link" style={s.configurar}>
+                {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                  <Text style={[s.configurarTexto, (hovered || configurando) && { color: color.lima }]}>
+                    {configurando ? '● ' : ''}Configurar centro →
+                  </Text>
+                )}
+              </Pressable>
+            )}
           </View>
           <View style={s.yo}>
-            <Avatar id={DIRECTOR.id} activo />
-            <View>
-              <Text style={s.yoNombre}>{nombreCompleto(DIRECTOR)}</Text>
-              <Text style={s.yoCentro}>Dirección</Text>
-            </View>
+            <Pressable onPress={() => router.navigate(`/persona/${yo.id}`)} accessibilityRole="link" accessibilityLabel="Ver mi ficha" style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flex: 1 }}>
+              <Avatar id={yo.id} activo />
+              <View style={{ flex: 1 }}>
+                <Text style={s.yoNombre} numberOfLines={1}>
+                  {nombreCompleto(yo)}
+                </Text>
+                <Text style={s.yoCentro}>{yo.rol}</Text>
+              </View>
+            </Pressable>
+            <Pressable onPress={() => router.navigate('/entrar')} accessibilityRole="link" accessibilityLabel="Cambiar de persona">
+              {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.configurarTexto, (hovered || ruta === '/entrar') && { color: color.lima }]}>Cambiar</Text>}
+            </Pressable>
           </View>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.contenido}>
@@ -167,16 +211,26 @@ function Marco() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: color.tinta }}>
         <View style={s.barra}>
           <Logo tam={26} />
-          <Mono marca style={{ color: color.lima }}>
-            {'// '}Escolar
-          </Mono>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <Pressable onPress={() => router.navigate('/avisos')} accessibilityRole="link" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[s.navTexto, { fontSize: 14 }, ruta === '/avisos' && { color: color.blanco }]}>Avisos</Text>
+              {sinLeer ? (
+                <View style={[s.insignia, { marginLeft: 0 }]}>
+                  <Text style={s.insigniaTexto}>{sinLeer}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable onPress={() => router.navigate('/entrar')} accessibilityRole="link" accessibilityLabel={`Eres ${yo.nombre}. Cambiar de persona`}>
+              <Avatar id={yo.id} tam={30} activo />
+            </Pressable>
+          </View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pestanas}>
-          {[...NAV, { ruta: '/configurar', texto: 'Configurar', corto: 'Ajustes', num: '07' }].map((n, i) => {
+          {[...NAV, ...(gestion ? [{ ruta: '/configurar', texto: 'Configurar', corto: 'Ajustes' }] : [])].map((n) => {
             const on = n.ruta === ruta;
             const num = insignia(n.ruta);
             return (
-              <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta)} accessibilityRole="link" style={s.pestana}>
+              <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta as never)} accessibilityRole="link" style={s.pestana}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[s.navTexto, { fontSize: 14 }, on && { color: color.blanco }]}>{n.corto}</Text>
                   {num ? (
@@ -205,6 +259,7 @@ const s = StyleSheet.create({
   indicador: { position: 'absolute', left: 0, right: 0, top: 0, height: ALTO_NAV, backgroundColor: color.cobalto },
   nav: { flexDirection: 'row', alignItems: 'center', gap: 12, height: ALTO_NAV, paddingHorizontal: 12 },
   navTexto: { fontFamily: font.uiMedium, fontSize: 15, color: color.grisClaro },
+  avisos: { marginBottom: 12 },
   insignia: { marginLeft: 'auto', minWidth: 20, height: 20, paddingHorizontal: 5, backgroundColor: color.lima, alignItems: 'center', justifyContent: 'center' },
   insigniaTexto: { fontFamily: font.monoBold, fontSize: 11, color: color.tinta },
   centro: { borderTopWidth: 1, borderTopColor: '#22263A', paddingVertical: 16, gap: 4 },

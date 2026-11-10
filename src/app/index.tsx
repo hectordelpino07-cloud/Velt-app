@@ -3,14 +3,16 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { EnlacePersona } from '../components/horario';
+import { MiDia } from '../components/mi-dia';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Contador, cortado, Mono } from '../components/ui';
 import { esClase } from '../data/centro';
-import { activos, CENTRO, DIRECTOR, persona } from '../data/equipo';
+import { activos, CENTRO, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { entra, entraLado } from '../lib/motion';
-import { useVelt } from '../lib/store';
+import { useVelt, useYo } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
 function saludo() {
@@ -18,7 +20,14 @@ function saludo() {
   return h < 14 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches';
 }
 
-export default function Hoy() {
+// Dirección y jefatura ven el parte del centro; el resto, su día
+export default function Inicio() {
+  const { gestion } = useYo();
+  return gestion ? <Hoy /> : <MiDia />;
+}
+
+function Hoy() {
+  const { yo } = useYo();
   const { width } = useWindowDimensions();
   const ancho = width >= ANCHO_ESCRITORIO;
   const grande = width >= 1240;
@@ -36,7 +45,7 @@ export default function Hoy() {
   const confirmadas = tareas.filter((t) => t.estado === 'confirmada').length;
   const hechas = tareas.filter((t) => t.estado === 'hecha').length;
   const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha').length;
-  const equipo = activos().filter((p) => p.id !== DIRECTOR.id);
+  const equipo = activos().filter((p) => p.rol !== 'Dirección');
   const libres = equipo.filter((p) => !carga[p.id]).length;
   const proximas = [...activas]
     .sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)))
@@ -45,7 +54,7 @@ export default function Hoy() {
 
   return (
     <View>
-      <TitularRevela texto={`${saludo()},\n${DIRECTOR.nombre}.`} tam={ancho ? 76 : 42} anima />
+      <TitularRevela texto={`${saludo()},\n${yo.nombre}.`} tam={ancho ? 76 : 42} anima />
       <Animated.View entering={entra(0, 300)}>
         <Mono style={{ marginTop: 10, fontSize: 14 }}>
           {fecha.charAt(0).toUpperCase() + fecha.slice(1)} · {CENTRO}
@@ -157,8 +166,12 @@ export default function Hoy() {
                 <View style={{ flex: 1, paddingBottom: 22 }}>
                   <Text style={s.lineaTitulo}>{t.titulo}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                    <Avatar id={t.responsableId} tam={22} />
-                    <Text style={s.lineaQuien}>{p?.nombre}</Text>
+                    <EnlacePersona id={t.responsableId}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Avatar id={t.responsableId} tam={22} />
+                        <Text style={s.lineaQuien}>{p?.nombre}</Text>
+                      </View>
+                    </EnlacePersona>
                     <Text style={[s.estado, t.estado === 'confirmada' ? { backgroundColor: color.lima } : { backgroundColor: '#E2DDD0' }]}>
                       {t.estado === 'confirmada' ? 'Confirmada' : 'Sin confirmar'}
                     </Text>
@@ -181,7 +194,8 @@ export default function Hoy() {
             {equipo.map((p, i) => {
               const c = carga[p.id] ?? 0;
               return (
-                <Animated.View key={p.id} entering={entra(i, 500)} style={[s.miembro, c >= 4 && { backgroundColor: '#FBE3E3' }, cortado(10)]}>
+                <EnlacePersona key={p.id} id={p.id}>
+                <Animated.View entering={entra(i, 500)} style={[s.miembro, c >= 4 && { backgroundColor: '#FBE3E3' }, cortado(10)]}>
                   <Avatar id={p.id} tam={34} />
                   <Text style={s.miembroNombre}>{p.nombre}</Text>
                   <Text style={s.miembroRol}>{p.materia || p.rol}</Text>
@@ -191,6 +205,7 @@ export default function Hoy() {
                     ))}
                   </View>
                 </Animated.View>
+                </EnlacePersona>
               );
             })}
           </View>

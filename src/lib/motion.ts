@@ -16,14 +16,18 @@ export const aparece = (retraso = 0) => FadeIn.delay(retraso).duration(200);
 export const sale = FadeOut.duration(150);
 export const recoloca = LinearTransition.duration(240).easing(curva);
 
-// Aparecer con un leve crecimiento: desde 0,95 y transparente, nunca desde 0
+// Aparecer con un leve crecimiento: desde 0,95 y transparente, nunca desde 0.
+// En la web, Reanimated deja con posición absoluta lo que entra con un
+// Keyframe propio y descoloca lo que va debajo, así que allí solo se funde.
 export const asoma = (retraso = 0) =>
-  new Keyframe({
-    0: { opacity: 0, transform: [{ scale: 0.95 }] },
-    100: { opacity: 1, transform: [{ scale: 1 }], easing: curva },
-  })
-    .delay(retraso)
-    .duration(220);
+  Platform.OS === 'web'
+    ? FadeIn.delay(retraso).duration(220).easing(curva)
+    : new Keyframe({
+        0: { opacity: 0, transform: [{ scale: 0.95 }] },
+        100: { opacity: 1, transform: [{ scale: 1 }], easing: curva },
+      })
+        .delay(retraso)
+        .duration(220);
 
 // Vibración suave al confirmar algo en el móvil
 export function vibra(tipo: 'suave' | 'exito' = 'suave') {

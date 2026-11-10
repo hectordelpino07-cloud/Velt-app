@@ -6,13 +6,14 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { EnlacePersona } from '../components/horario';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Contador, cortado, Mono } from '../components/ui';
 import { Clase, esClase, esLugar, franjaActual, TIPOS_MATERIAL } from '../data/centro';
 import { activos, CENTRO, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { asoma, entra, recoloca, vibra } from '../lib/motion';
-import { useVelt } from '../lib/store';
+import { useVelt, useYo } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
@@ -36,6 +37,7 @@ export default function Centro() {
   const ancho = width >= ANCHO_ESCRITORIO;
   const lado = width >= 1300;
   const { enviar } = useVelt();
+  const { yo, gestion } = useYo();
   const toast = useToast();
   const cfg = useCentro();
   const { franjas: FRANJAS, plantas, espacios, horario, materiales, reservas, ausentes, cubiertas, espacio, nombreEspacio } = cfg;
@@ -174,7 +176,7 @@ export default function Centro() {
   };
 
   const reservar = (espacioId: string) => {
-    cfg.reservar(franja, espacioId, 'Reservada por dirección');
+    cfg.reservar(franja, espacioId, gestion ? 'Reservada por dirección' : `Reservada por ${yo.nombre}`);
     vibra();
     toast(`${nombreEspacio(espacioId)} reservada a ${FRANJAS[franja].nombre} (${FRANJAS[franja].inicio}).`, {
       etiqueta: 'Deshacer',
@@ -245,9 +247,14 @@ export default function Centro() {
             <Boton variante="gris" pequeno onPress={() => router.navigate('/material')}>
               Material
             </Boton>
-            <Boton variante="gris" pequeno onPress={() => router.navigate('/configurar')}>
-              Editar el centro
+            <Boton variante="gris" pequeno onPress={() => router.navigate('/horarios')}>
+              Horarios
             </Boton>
+            {gestion && (
+              <Boton variante="gris" pequeno onPress={() => router.navigate('/configurar')}>
+                Editar el centro
+              </Boton>
+            )}
           </View>
         </View>
       </Animated.View>
@@ -349,12 +356,12 @@ export default function Centro() {
                       {celdas[e.id].titulo} · {celdas[e.id].detalle}
                     </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                      {(deGuardia.length ? deGuardia : enSala).slice(0, 3).map((x) => (
+                      {(gestion ? (deGuardia.length ? deGuardia : enSala) : []).slice(0, 3).map((x) => (
                         <Boton key={x.id} variante="lima" fondo={color.tinta} pequeno onPress={() => cubrir(e.id, x.id)}>
                           {`Cubrir con ${x.nombre}${deGuardia.length ? ' · guardia' : ''}`}
                         </Boton>
                       ))}
-                      {!deGuardia.length && !enSala.length && <Text style={s.alertaTexto}>No hay nadie libre en esta franja.</Text>}
+                      {gestion && !deGuardia.length && !enSala.length && <Text style={s.alertaTexto}>No hay nadie libre en esta franja.</Text>}
                     </View>
                   </View>
                 ))}
@@ -434,19 +441,24 @@ export default function Centro() {
                       <Text style={[s.lugar, { backgroundColor: tono.bg, color: tono.tx }]}>{u.texto}</Text>
                     </Animated.View>
                   </Pressable>
-                  {(x.rol === 'Profesorado' || x.rol === 'Jefatura') && (
-                    <Pressable onPress={() => marcarAusente(x.id)} accessibilityRole="button" style={s.ausenteBoton}>
-                      {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
-                        <Text style={[s.ausenteTexto, (hovered || ausentes.includes(x.id)) && { color: color.rojo }]}>
-                          {ausentes.includes(x.id) ? 'Quitar ausencia' : 'Marcar ausente hoy'}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
+                  <View style={s.accionesPersona}>
+                    <EnlacePersona id={x.id}>
+                      <Text style={s.ausenteTexto}>Ver su horario</Text>
+                    </EnlacePersona>
+                    {gestion && (x.rol === 'Profesorado' || x.rol === 'Jefatura') && (
+                      <Pressable onPress={() => marcarAusente(x.id)} accessibilityRole="button">
+                        {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                          <Text style={[s.ausenteTexto, (hovered || ausentes.includes(x.id)) && { color: color.rojo }]}>
+                            {ausentes.includes(x.id) ? 'Quitar ausencia' : 'Marcar ausente hoy'}
+                          </Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
                 </Animated.View>
               );
             })}
-            <Text style={s.nota}>Toca a una persona para verla en el mapa. Si marcas a alguien ausente, VELT te dice qué clases quedan sin profesor y quién puede cubrirlas.</Text>
+            <Text style={s.nota}>{gestion ? 'Toca a una persona para verla en el mapa. Si marcas a alguien ausente, VELT te dice qué clases quedan sin profesor y quién puede cubrirlas.' : 'Toca a una persona para verla en el mapa, o abre su horario para saber dónde estará el resto de la semana.'}</Text>
           </View>
         </View>
       </View>
@@ -543,7 +555,7 @@ const s = StyleSheet.create({
   personaNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   personaRol: { fontFamily: font.ui, fontSize: 12, color: color.gris },
   lugar: { fontFamily: font.uiBold, fontSize: 12, paddingHorizontal: 7, paddingVertical: 4, maxWidth: 190, textAlign: 'right' },
-  ausenteBoton: { marginLeft: 44, paddingVertical: 4, alignSelf: 'flex-start' },
+  accionesPersona: { flexDirection: 'row', gap: 16, marginLeft: 44, paddingVertical: 4 },
   ausenteTexto: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, textDecorationLine: 'underline' },
   nota: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.gris, marginTop: 14, borderTopWidth: 1, borderTopColor: color.borde, paddingTop: 10 },
 });

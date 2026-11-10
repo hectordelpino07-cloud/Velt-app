@@ -1,15 +1,17 @@
 // Dirección ve en qué estado está cada tarea, la carga de cada persona
 // y responde a las dudas del equipo.
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeOutUp } from 'react-native-reanimated';
+import { EnlacePersona, textoHueco } from '../components/horario';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel } from '../components/ui';
-import { activos, DIRECTOR, nombreCompleto, persona } from '../data/equipo';
+import { franjaActual } from '../data/centro';
+import { activos, nombreCompleto, Persona, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { entra, recoloca, sale } from '../lib/motion';
-import { Estado, Tarea, useVelt } from '../lib/store';
+import { Estado, hace, Tarea, useVelt } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
@@ -28,10 +30,14 @@ export default function Seguimiento() {
   const cargaAlLado = width >= 1500;
   const columnasEnFila = width >= 1100;
   const { tareas, carga, reiniciar } = useVelt();
-  useCentro(); // se vuelve a pintar si cambia el personal
+  const cfg = useCentro();
+  const reloj = franjaActual(cfg.franjas);
+  // Qué hace cada persona ahora mismo (o su materia, fuera del horario de clases)
+  const ahoraDe = (p: Persona) =>
+    cfg.ausentes.includes(p.id) ? 'Ausente hoy' : reloj.real ? textoHueco(cfg.horario[p.id]?.[reloj.franja], cfg.nombreEspacio, p) : p.materia || p.rol;
   const dudas = tareas.filter((t) => t.duda && !t.respuesta && t.estado !== 'hecha');
   const n = (e: Estado) => tareas.filter((t) => t.estado === e).length;
-  const equipo = activos().filter((p) => p.id !== DIRECTOR.id).sort((a, b) => (carga[b.id] ?? 0) - (carga[a.id] ?? 0));
+  const equipo = activos().filter((p) => p.rol !== 'Dirección').sort((a, b) => (carga[b.id] ?? 0) - (carga[a.id] ?? 0));
   const maxCarga = Math.max(CARGA_ALTA, ...equipo.map((p) => carga[p.id] ?? 0));
   const retrasadas = tareas.filter((t) => t.estado !== 'hecha' && atrasada(t)).length;
 
@@ -87,21 +93,25 @@ export default function Seguimiento() {
             const c = carga[p.id] ?? 0;
             const alta = c >= CARGA_ALTA;
             return (
-              <Animated.View key={p.id} entering={entra(i, 300)} layout={recoloca} style={s.persona}>
+              <Animated.View key={p.id} entering={entra(Math.min(i, 8), 300)} layout={recoloca}>
+              <EnlacePersona id={p.id}>
+              <View style={s.persona}>
                 <Avatar id={p.id} tam={30} />
                 <View style={{ flex: 1, gap: 6 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={s.personaNombre}>
-                      {p.nombre} <Text style={s.personaRol}>· {p.rol}</Text>
+                      {p.nombre} <Text style={s.personaRol}>· {ahoraDe(p)}</Text>
                     </Text>
                     <Text style={[s.personaN, alta && { color: color.rojo }, c === 0 && { color: color.gris }]}>{c === 0 ? 'Libre' : c}</Text>
                   </View>
                   <Barra alto={6} total={maxCarga} tramos={[{ valor: c, color: alta ? color.rojo : color.tinta }]} />
                 </View>
+              </View>
+              </EnlacePersona>
               </Animated.View>
             );
           })}
-          <Text style={s.nota}>VELT tiene en cuenta esta carga al proponerte a quién asignar cada tarea.</Text>
+          <Text style={s.nota}>Toca a una persona para ver su horario y sus tareas. VELT tiene en cuenta esta carga al proponerte a quién asignar cada tarea.</Text>
         </Animated.View>
 
         <View style={[s.columnas, !columnasEnFila && { flexDirection: 'column', alignItems: 'stretch' }, cargaAlLado && { flex: 1 }]}>
@@ -183,16 +193,35 @@ function Duda({ t }: { t: Tarea }) {
 
 function Fila({ t }: { t: Tarea }) {
   const p = persona(t.responsableId);
+  const { recordar } = useVelt();
+  const toast = useToast();
   return (
     <View style={s.fila}>
       <Avatar id={t.responsableId} tam={28} />
       <View style={{ flex: 1 }}>
         <Text style={[s.titulo, t.estado === 'hecha' && { textDecorationLine: 'line-through', color: color.gris }]}>{t.titulo}</Text>
-        <Text style={s.sub}>{p ? nombreCompleto(p) : '—'}</Text>
+        <EnlacePersona id={t.responsableId} style={{ alignSelf: 'flex-start' }}>
+          <Text style={s.sub}>{p ? nombreCompleto(p) : '—'}</Text>
+        </EnlacePersona>
         <View style={{ marginTop: 8, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <Etiqueta dia={diaDeTarea(t)} hora={t.hora} alerta={t.estado !== 'hecha' && atrasada(t)} />
           {t.duda ? <Text style={s.marcaDuda}>{t.respuesta ? 'Duda resuelta' : 'Tiene una duda'}</Text> : null}
         </View>
+        {/* Sin confirmar: cuándo se le avisó y un recordatorio a un toque */}
+        {t.estado === 'pendiente' && (
+          <View style={s.aviso}>
+            <Text style={s.avisoTexto}>{t.recordada ? `Recordada ${hace(t.recordada)}` : `Avisada ${hace(t.creada)}`}</Text>
+            <Pressable
+              onPress={() => {
+                recordar(t.id);
+                toast(`Recordatorio enviado a ${p?.nombre ?? 'su responsable'}.`);
+              }}
+              accessibilityRole="button"
+            >
+              {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.recordar, hovered && { color: color.tinta }]}>Recordar</Text>}
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -218,6 +247,9 @@ const s = StyleSheet.create({
   fila: { flexDirection: 'row', gap: 12, backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 14, marginTop: 8 },
   titulo: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   sub: { fontFamily: font.ui, fontSize: 12, color: color.gris, marginTop: 2 },
+  aviso: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
+  avisoTexto: { fontFamily: font.ui, fontSize: 12, color: color.gris },
+  recordar: { fontFamily: font.uiBold, fontSize: 12, color: color.cobalto, textDecorationLine: 'underline' },
   marcaDuda: { fontFamily: font.uiBold, fontSize: 12, color: color.tinta, backgroundColor: color.lima, paddingHorizontal: 6, paddingVertical: 3 },
   dudaTarea: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta, marginTop: 2 },
   duda: { fontFamily: font.displayBold, fontSize: 18, lineHeight: 24, color: color.tinta, marginTop: 14 },

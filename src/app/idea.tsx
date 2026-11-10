@@ -5,11 +5,11 @@ import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } fro
 import Animated, { FadeOutUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, Chip, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
-import { DIRECTOR, nombreCompleto, persona } from '../data/equipo';
+import { nombreCompleto, persona } from '../data/equipo';
 import { asoma, entra, entraLado, recoloca, sale, vibra } from '../lib/motion';
 import { aFecha, etiquetaDia } from '../lib/fechas';
 import { analizarIdea, Analisis } from '../lib/parser';
-import { useVelt } from '../lib/store';
+import { useVelt, useYo } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
 // Ideas de ejemplo para enseñar VELT a un centro en un clic
@@ -36,6 +36,7 @@ type Fase = 'escribir' | 'pensando' | 'resultado' | 'enviado';
 type Enviado = { tareas: number; personas: { id: string; n: number }[] };
 
 export default function NuevaIdea() {
+  const { yo } = useYo();
   const { width } = useWindowDimensions();
   const ancho = width >= ANCHO_ESCRITORIO;
   const dosColumnas = width >= 1240;
@@ -266,7 +267,7 @@ export default function NuevaIdea() {
                     </Text>
                   </View>
                   <Panel style={{ width: ancho ? 280 : '100%' }} corte={16} sombra={8} tonoSombra={color.lima}>
-                    <Mono style={{ color: color.lima, marginBottom: 10 }}>{'// '}Nueva tarea · de {DIRECTOR.nombre}</Mono>
+                    <Mono style={{ color: color.lima, marginBottom: 10 }}>{'// '}Nueva tarea · de {yo.nombre}</Mono>
                     <Titular tam={22} style={{ color: color.crema, marginBottom: 12 }}>
                       {primera.titulo}
                     </Titular>

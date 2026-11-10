@@ -1,12 +1,13 @@
 // Configurar centro: dirección crea las plantas, dice cuántas aulas tiene
 // cada una, les pone nombre y rellena los horarios. Pensado para hacerse en
 // diez minutos y sin manual: todo se edita en el sitio y se guarda solo.
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, cortado, Mono } from '../components/ui';
-import { Clase, esClase, esLugar, Espacio, Franja, JORNADAS, TIPOS_ESPACIO, TurnoFranja } from '../data/centro';
+import { Clase, DIAS, esClase, esLugar, Espacio, Franja, Hueco, JORNADAS, TIPOS_ESPACIO, TurnoFranja } from '../data/centro';
 import { activos, CENTRO, daClase, DIRECTOR, EQUIPO, Persona, persona, ROLES, TURNOS } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { entra, sale, vibra } from '../lib/motion';
@@ -389,17 +390,21 @@ function Horarios({ ancho }: { ancho: boolean }) {
   const quien = profes.some((p) => p.id === elegido) ? elegido : profes[0]?.id ?? '';
   const yo = persona(quien);
   const [eligiendo, setEligiendo] = useState<number | null>(null);
-  const huecos = cfg.horario[quien] ?? [];
+  const [dia, setDia] = useState(cfg.dia);
+  // El horario es semanal: aquí se retoca un día cada vez
+  const delDia: Record<string, Hueco[]> = Object.fromEntries(Object.entries(cfg.semana).map(([id, sem]) => [id, sem[dia] ?? []]));
+  const poner = (franja: number, hueco: Hueco) => cfg.ponerHueco(quien, franja, hueco, dia);
+  const huecos = delDia[quien] ?? [];
   const lugaresClase = cfg.espacios.filter((e) => e.tipo !== 'oficina');
 
   // ¿Alguien más da clase en ese espacio a esa hora?
   const choque = (franja: number, espacioId: string) =>
-    Object.entries(cfg.horario).find(([p, hs]) => p !== quien && esClase(hs[franja]) && (hs[franja] as Clase).espacio === espacioId)?.[0];
+    Object.entries(delDia).find(([p, hs]) => p !== quien && esClase(hs[franja]) && (hs[franja] as Clase).espacio === espacioId)?.[0];
 
   const ponerClase = (franja: number) => {
     const libre = lugaresClase.find((e) => !choque(franja, e.id)) ?? lugaresClase[0];
     if (!libre) return;
-    cfg.ponerHueco(quien, franja, {
+    poner(franja, {
       espacio: libre.id,
       grupo: libre.tipo === 'aula' ? libre.nombre : '',
       materia: yo?.materia ?? '',
@@ -410,6 +415,15 @@ function Horarios({ ancho }: { ancho: boolean }) {
   return (
     <View>
       {profes.length === 0 && <Text style={s.vacio}>No hay profesorado. Añádelo en «03 · Personal».</Text>}
+      <View style={[s.atajoHorario, cortado(14)]}>
+        <View style={{ flex: 1, minWidth: 220 }}>
+          <Text style={s.atajoTitulo}>¿Empieza el curso o ha cambiado el claustro?</Text>
+          <Text style={s.atajoTexto}>VELT puede crear el horario entero de todo el profesorado. Aquí solo se retoca a mano.</Text>
+        </View>
+        <Boton variante="lima" fondo={color.tinta} pequeno onPress={() => router.navigate('/horarios')}>
+          Crear el horario
+        </Boton>
+      </View>
       <Mono style={{ marginBottom: 10 }}>{'// '}Elige a un profesor</Mono>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
         {profes.map((p) => {
@@ -437,6 +451,13 @@ function Horarios({ ancho }: { ancho: boolean }) {
         })}
       </ScrollView>
 
+      <View style={s.diasSemana}>
+        {DIAS.map((n, d) => (
+          <Pressable key={n} onPress={() => setDia(d)} accessibilityRole="tab" style={[s.diaSemana, d === dia && { backgroundColor: color.tinta }]}>
+            <Text style={[s.diaSemanaTexto, d === dia && { color: color.crema }]}>{n}</Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={[s.horario, cortado(18)]}>
         {cfg.franjas.map((f) => {
           const h = huecos[f.id] ?? 'libre';
@@ -452,9 +473,9 @@ function Horarios({ ancho }: { ancho: boolean }) {
                 </View>
                 <View style={s.segmentos}>
                   <Segmento on={tipo === 'clase'} texto="Clase" onPress={() => (tipo === 'clase' ? setEligiendo(eligiendo === f.id ? null : f.id) : ponerClase(f.id))} />
-                  <Segmento on={tipo === 'guardia'} texto="Guardia" onPress={() => cfg.ponerHueco(quien, f.id, 'guardia')} />
-                  <Segmento on={tipo === 'libre'} texto="Libre" onPress={() => cfg.ponerHueco(quien, f.id, 'libre')} />
-                  <Segmento on={tipo === 'fuera'} texto="No está" onPress={() => cfg.ponerHueco(quien, f.id, 'fuera')} />
+                  <Segmento on={tipo === 'guardia'} texto="Guardia" onPress={() => poner(f.id, 'guardia')} />
+                  <Segmento on={tipo === 'libre'} texto="Libre" onPress={() => poner(f.id, 'libre')} />
+                  <Segmento on={tipo === 'fuera'} texto="No está" onPress={() => poner(f.id, 'fuera')} />
                   {esLugar(h) && <Segmento on texto={h.motivo} onPress={() => {}} />}
                 </View>
                 {esClase(h) && (
@@ -466,14 +487,14 @@ function Horarios({ ancho }: { ancho: boolean }) {
                       valor={h.grupo}
                       placeholder="Grupo"
                       placeholderTextColor="#9A9DA8"
-                      alGuardar={(t) => cfg.ponerHueco(quien, f.id, { ...h, grupo: t })}
+                      alGuardar={(t) => poner(f.id, { ...h, grupo: t })}
                       style={[s.campo, { width: 110 }]}
                     />
                     <Campo
                       valor={h.materia}
                       placeholder="Asignatura"
                       placeholderTextColor="#9A9DA8"
-                      alGuardar={(t) => cfg.ponerHueco(quien, f.id, { ...h, materia: t })}
+                      alGuardar={(t) => poner(f.id, { ...h, materia: t })}
                       style={[s.campo, { flex: 1, minWidth: 120 }]}
                     />
                   </View>
@@ -496,7 +517,7 @@ function Horarios({ ancho }: { ancho: boolean }) {
                       <Pressable
                         key={e.id}
                         onPress={() => {
-                          cfg.ponerHueco(quien, f.id, { ...h, espacio: e.id, grupo: e.tipo === 'aula' && (!h.grupo || h.grupo === cfg.nombreEspacio(h.espacio)) ? e.nombre : h.grupo });
+                          poner(f.id, { ...h, espacio: e.id, grupo: e.tipo === 'aula' && (!h.grupo || h.grupo === cfg.nombreEspacio(h.espacio)) ? e.nombre : h.grupo });
                           setEligiendo(null);
                         }}
                         style={[s.opcion, on && s.opcionOn, ocupado && !on && { opacity: 0.45 }]}
@@ -576,6 +597,12 @@ const s = StyleSheet.create({
   profeOn: { backgroundColor: color.tinta, borderColor: color.tinta },
   profeNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   profeMateria: { fontFamily: font.ui, fontSize: 11, color: color.gris },
+  atajoHorario: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, backgroundColor: color.tinta, padding: 18, marginBottom: 22 },
+  atajoTitulo: { fontFamily: font.uiBold, fontSize: 15, color: color.crema },
+  atajoTexto: { fontFamily: font.ui, fontSize: 13, lineHeight: 19, color: color.grisClaro, marginTop: 3 },
+  diasSemana: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 18 },
+  diaSemana: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 2, borderColor: color.tinta },
+  diaSemanaTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
   horario: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, marginTop: 14 },
   franja: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: color.borde },
   franjaFila: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },

@@ -1,15 +1,14 @@
-// Vista del personal: recibir, confirmar y marcar como hecha. Nada más.
-// Mientras no haya inicio de sesión, «Ver como» permite probar cada perfil.
+// Las tareas de quien usa la app: recibir, confirmar y marcar como hecha.
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { SlideOutRight } from 'react-native-reanimated';
 import { Deslizar, TitularRevela } from '../components/motion';
-import { Avatar, Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
-import { activos, DIRECTOR, persona } from '../data/equipo';
+import { Barra, Boton, Contador, cortado, Etiqueta, Mono, Panel, Titular } from '../components/ui';
+import { DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { asoma, entra, recoloca } from '../lib/motion';
-import { Tarea, useVelt } from '../lib/store';
+import { Tarea, useVelt, useYo } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
@@ -18,11 +17,8 @@ export default function MisTareas() {
   const ancho = width >= ANCHO_ESCRITORIO;
   const { tareas } = useVelt();
   useCentro(); // se vuelve a pintar si cambia el personal
-  const [elegido, setYo] = useState('carmen');
-  // Si la persona elegida se da de baja, se pasa a la primera en activo
-  const personal = activos().filter((x) => x.id !== DIRECTOR.id);
-  const yo = personal.some((x) => x.id === elegido) ? elegido : personal[0]?.id ?? DIRECTOR.id;
-  const p = persona(yo)!;
+  const { yo: p } = useYo();
+  const yo = p.id;
   const todas = tareas.filter((t) => t.responsableId === yo).sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)));
   const activas = todas.filter((t) => t.estado !== 'hecha');
   const hechas = todas.filter((t) => t.estado === 'hecha').length;
@@ -31,23 +27,8 @@ export default function MisTareas() {
 
   return (
     <View style={{ maxWidth: 760 }}>
-      <Animated.View entering={entra(0)}>
-        <Mono style={{ marginBottom: 12 }}>{'// '}Ver como · prueba sin inicio de sesión</Mono>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
-          {personal.map((x) => {
-            const on = x.id === yo;
-            return (
-              <Pressable key={x.id} onPress={() => setYo(x.id)} accessibilityRole="button" style={[s.persona, on && s.personaOn, cortado(8)]}>
-                <Avatar id={x.id} tam={28} activo={on} />
-                <Text style={[s.personaNombre, on && { color: color.crema }]}>{x.nombre}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </Animated.View>
-
       <Animated.View key={yo} entering={entra(1)}>
-        <View style={{ marginTop: 28, marginBottom: 22 }}>
+        <View style={{ marginBottom: 22 }}>
           <TitularRevela texto={`Hola, ${p.nombre}.`} tam={ancho ? 48 : 34} />
           <Mono style={{ marginTop: 10, fontSize: 14 }}>
             {p.materia || p.rol} · {fecha}
@@ -118,12 +99,13 @@ function TarjetaTarea({ t }: { t: Tarea }) {
   const [escribiendo, setEscribiendo] = useState(false);
   const [duda, setDuda] = useState('');
   const confirmada = t.estado === 'confirmada';
+  const remitente = persona(t.de ?? DIRECTOR.id)?.nombre ?? DIRECTOR.nombre;
 
   return (
     <Panel corte={18} sombra={8} tonoSombra={confirmada ? color.lima : color.cobalto}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <Mono style={{ color: color.lima }}>
-          {'// '}{confirmada ? 'Confirmada' : 'Nueva tarea'} · de {DIRECTOR.nombre}
+          {'// '}{confirmada ? 'Confirmada' : 'Nueva tarea'} · de {remitente}
         </Mono>
         {confirmada && (
           <Animated.View entering={asoma()} style={[s.sello, cortado(6)]}>
@@ -144,7 +126,7 @@ function TarjetaTarea({ t }: { t: Tarea }) {
           <Text style={s.hiloTexto}>{t.duda}</Text>
           {t.respuesta ? (
             <Animated.View entering={entra(0)}>
-              <Text style={[s.hiloQuien, { color: color.lima, marginTop: 10 }]}>{DIRECTOR.nombre}</Text>
+              <Text style={[s.hiloQuien, { color: color.lima, marginTop: 10 }]}>{remitente}</Text>
               <Text style={s.hiloTexto}>{t.respuesta}</Text>
             </Animated.View>
           ) : (
@@ -196,7 +178,7 @@ function TarjetaTarea({ t }: { t: Tarea }) {
               textoHecho="Confirmada"
               onConfirmar={() => {
                 cambiarEstado(t.id, 'confirmada');
-                toast(`Confirmada. ${DIRECTOR.nombre} ya sabe que te encargas.`, { etiqueta: 'Deshacer', fn: () => cambiarEstado(t.id, 'pendiente') });
+                toast(`Confirmada. ${remitente} ya sabe que te encargas.`, { etiqueta: 'Deshacer', fn: () => cambiarEstado(t.id, 'pendiente') });
               }}
             />
           )}

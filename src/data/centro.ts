@@ -56,6 +56,52 @@ export type Clase = { espacio: string; grupo: string; materia: string };
 export type Lugar = { lugar: string; motivo: string };
 export type Hueco = Clase | 'guardia' | 'libre' | 'fuera' | Lugar;
 
+// El horario es semanal: semana[día][franja], de lunes (0) a viernes (4)
+export type Semana = Hueco[][];
+export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+export const DIAS_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+// Día de la semana de hoy (0–4). En fin de semana se enseña el lunes.
+export function diaDeHoy(d = new Date()) {
+  const n = d.getDay();
+  return n >= 1 && n <= 5 ? n - 1 : 0;
+}
+
+// Plan del curso: de aquí sale el horario que VELT crea solo. Cada materia
+// tiene unas horas a la semana por grupo, quién puede darla y, si hace falta,
+// un aula específica (el gimnasio, el aula de música…).
+export type MateriaPlan = { id: string; nombre: string; horas: number; espacio?: string; profes: string[] };
+export type Plan = {
+  materias: MateriaPlan[];
+  horasLectivas: number; // horas de clase a la semana de un docente a jornada completa
+  guardias: number; // guardias a la semana por docente
+  guardiasPorFranja: number; // personas de guardia en cada hora
+  turnos: Record<string, TurnoFranja>; // turno de cada grupo cuando el centro tiene dos
+};
+
+const mp = (id: string, nombre: string, horas: number, profes: string[], espacio?: string): MateriaPlan => ({ id, nombre, horas, profes, espacio });
+
+// 30 horas a la semana por grupo, como en un instituto de mañana
+export const PLAN_INICIAL: Plan = {
+  materias: [
+    mp('len', 'Lengua', 4, ['lucia', 'elena']),
+    mp('mat', 'Matemáticas', 4, ['marta', 'diego']),
+    mp('ing', 'Inglés', 4, ['sara', 'hugo']),
+    mp('geh', 'Geografía e Historia', 3, ['ines', 'nuria']),
+    mp('bio', 'Biología', 3, ['raul', 'alba']),
+    mp('fyq', 'Física y Química', 2, ['alba', 'raul'], 'LAB'),
+    mp('efi', 'Ed. Física', 2, ['andres'], 'GIM'),
+    mp('tec', 'Tecnología', 2, ['diego', 'alba'], 'INF'),
+    mp('mus', 'Música', 2, ['hugo'], 'MUS'),
+    mp('pla', 'Plástica', 2, ['irene']),
+    mp('val', 'Valores', 1, ['nuria', 'elena', 'irene']),
+    mp('tut', 'Tutoría', 1, ['elena', 'nuria', 'irene', 'andres', 'alba']),
+  ],
+  horasLectivas: 20,
+  guardias: 3,
+  guardiasPorFranja: 1,
+  turnos: {},
+};
+
 export type TipoMaterial = 'proyector' | 'pizarra' | 'portatil' | 'audio' | 'laboratorio' | 'otro';
 
 export const TIPOS_MATERIAL: { id: TipoMaterial; nombre: string; plural: string }[] = [
@@ -106,24 +152,9 @@ export const ESPACIOS_INICIALES: Espacio[] = [
   { id: 'PISTA', nombre: 'Pista deportiva', tipo: 'exterior', planta: 'ex' },
 ];
 
-const c = (espacio: string, grupo: string, materia: string): Clase => ({ espacio, grupo, materia });
-const jefatura = { lugar: 'DIR', motivo: 'Jefatura de estudios' };
-
-export const HORARIO_INICIAL: Record<string, Hueco[]> = {
-  raul: [c('3A', '3.º ESO A', 'Física y Química'), c('LAB', '1.º ESO B', 'Biología'), 'libre', 'libre', c('4A', '4.º ESO A', 'Física y Química'), 'guardia', c('2B', '2.º ESO B', 'Biología')],
-  marta: [c('1A', '1.º ESO A', 'Matemáticas'), c('2A', '2.º ESO A', 'Matemáticas'), 'guardia', 'libre', c('1B', '1.º ESO B', 'Matemáticas'), 'libre', c('3A', '3.º ESO A', 'Matemáticas')],
-  andres: [c('GIM', '2.º ESO A', 'Ed. Física'), 'guardia', c('PISTA', '1.º ESO A', 'Ed. Física'), { lugar: 'PATIO', motivo: 'Guardia de recreo' }, 'guardia', c('GIM', '1.º ESO B', 'Ed. Física'), 'libre'],
-  lucia: [c('2B', '2.º ESO B', 'Inglés'), c('3A', '3.º ESO A', 'Lengua'), c('2A', '2.º ESO A', 'Inglés'), 'libre', c('1A', '1.º ESO A', 'Lengua'), c('4A', '4.º ESO A', 'Inglés'), 'guardia'],
-  ines: ['guardia', jefatura, c('3A', '3.º ESO A', 'Historia'), 'libre', c('2B', '2.º ESO B', 'Historia'), c('2A', '2.º ESO A', 'Historia'), jefatura],
-  carmen: [0, 1, 2, 3, 4, 5, 6].map((f) => (f === 3 ? { lugar: 'PATIO', motivo: 'Puerta del patio' } : { lugar: 'CON', motivo: 'Conserjería' })),
-  luis: [0, 1, 2, 3, 4, 5, 6].map(() => ({ lugar: 'SEC', motivo: 'Secretaría' })),
-  pablo: [0, 1, 2, 3, 4, 5, 6].map((f) => (f === 2 ? { lugar: 'BIB', motivo: 'Reunión con familias' } : { lugar: 'DIR', motivo: 'Dirección' })),
-};
-
 // Reservas que ya existen ('franja:espacio' → motivo)
 export const RESERVAS_INICIALES: Record<string, string> = {
-  '4:BIB': 'Tutoría de 4.º ESO',
-  '1:MUS': 'Ensayo del coro',
+  '4:BIB': 'Club de lectura',
 };
 
 const m = (id: string, nombre: string, tipo: TipoMaterial, espacio: string | null, extra: Partial<Material> = {}): Material => ({
