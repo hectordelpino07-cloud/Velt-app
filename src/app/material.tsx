@@ -9,13 +9,14 @@ import { Material, TipoMaterial, TIPOS_MATERIAL } from '../data/centro';
 import { activos, CENTRO, DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { entra, recoloca, sale, vibra } from '../lib/motion';
-import { useVelt } from '../lib/store';
+import { useVelt, useYo } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
 const CONSERJERIA = 'carmen';
 
 export default function MaterialPantalla() {
+  const { gestion } = useYo();
   const { width } = useWindowDimensions();
   const ancho = width >= ANCHO_ESCRITORIO;
   const { materiales } = useCentro();
@@ -52,12 +53,14 @@ export default function MaterialPantalla() {
             </Pressable>
           ))}
         </ScrollView>
-        <Boton pequeno onPress={() => setCreando((c) => !c)}>
-          {creando ? 'Cerrar' : '+ Añadir material'}
-        </Boton>
+        {gestion && (
+          <Boton pequeno onPress={() => setCreando((c) => !c)}>
+            {creando ? 'Cerrar' : '+ Añadir material'}
+          </Boton>
+        )}
       </View>
 
-      {creando && <NuevoMaterial onHecho={() => setCreando(false)} />}
+      {gestion && creando && <NuevoMaterial onHecho={() => setCreando(false)} />}
 
       {tipos.map((t, ti) => {
         const lista = visibles.filter((m) => m.tipo === t.id);
@@ -92,6 +95,7 @@ type Panel = null | 'lugar' | 'prestar';
 function FilaMaterial({ m }: { m: Material }) {
   const cfg = useCentro();
   const { enviar } = useVelt();
+  const { yo, gestion } = useYo();
   const toast = useToast();
   const [panel, setPanel] = useState<Panel>(null);
   const quien = m.prestadoA ? persona(m.prestadoA) : undefined;
@@ -110,7 +114,7 @@ function FilaMaterial({ m }: { m: Material }) {
         responsableId: CONSERJERIA,
         dia: 'Hoy',
         hora: null,
-        porque: `Dirección lo ha marcado como averiado en VELT.`,
+        porque: `${gestion ? 'Dirección' : yo.nombre} lo ha marcado como averiado en VELT.`,
       },
     ]);
     vibra();
@@ -128,14 +132,14 @@ function FilaMaterial({ m }: { m: Material }) {
             {m.nombre}
             {m.cantidad > 1 ? <Text style={s.cantidad}> · {m.cantidad} uds.</Text> : null}
           </Text>
-          <Pressable onPress={() => setPanel(panel === 'lugar' ? null : 'lugar')} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
-            <Text style={s.lugar}>Está en: {cfg.nombreEspacio(m.espacio)} ▾</Text>
+          <Pressable disabled={!gestion} onPress={() => setPanel(panel === 'lugar' ? null : 'lugar')} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
+            <Text style={s.lugar}>Está en: {cfg.nombreEspacio(m.espacio)}{gestion ? ' ▾' : ''}</Text>
           </Pressable>
           {m.estado === 'averiado' && m.nota ? <Text style={s.nota}>{m.nota}</Text> : null}
         </View>
         <Text style={[s.estado, { backgroundColor: tono.bg, color: tono.tx }]}>{tono.t}</Text>
         <View style={s.acciones}>
-          {m.estado === 'prestado' ? (
+          {!gestion ? null : m.estado === 'prestado' ? (
             <Accion
               texto="Devolver"
               onPress={() => {
@@ -147,7 +151,7 @@ function FilaMaterial({ m }: { m: Material }) {
             <Accion texto="Prestar" onPress={() => setPanel(panel === 'prestar' ? null : 'prestar')} />
           ) : null}
           {m.estado === 'averiado' ? (
-            <Accion
+            gestion && <Accion
               texto="Ya funciona"
               onPress={() => {
                 cfg.editarMaterial(m.id, { estado: 'ok', nota: undefined });
@@ -158,13 +162,13 @@ function FilaMaterial({ m }: { m: Material }) {
           ) : (
             <Accion texto="Averiado" peligro onPress={averiado} />
           )}
-          <Accion
+          {gestion && <Accion
             texto="✕"
             onPress={() => {
               cfg.quitarMaterial(m.id);
               toast(`${m.nombre} borrado del inventario.`);
             }}
-          />
+          />}
         </View>
       </View>
 
