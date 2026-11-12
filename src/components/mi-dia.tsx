@@ -12,7 +12,7 @@ import { useVelt, useYo } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 import { ahoraYLuego, ProgresoHora, textoHueco, tonoMateria } from './horario';
 import { TitularRevela } from './motion';
-import { Boton, Contador, cortado, Etiqueta, Mono } from './ui';
+import { Boton, Contador, cortado, Etiqueta, Foto, Mono } from './ui';
 
 function saludo() {
   const h = new Date().getHours();
@@ -44,6 +44,7 @@ export function MiDia() {
 
       <View style={[s.arriba, !ancho && { flexDirection: 'column' }]}>
         <Animated.View entering={entra(2, 150)} style={[s.ahora, cortado(28), ancho && { flex: 1.6 }]}>
+          <Foto de="aula" />
           <Mono style={{ color: color.lima }}>{real ? `Ahora · ${franja!.inicio}–${franja!.fin}` : 'Fuera del horario de clases'}</Mono>
           <Text style={[s.ahoraTexto, { fontSize: ancho ? 44 : 30, lineHeight: ancho ? 44 : 31 }]}>
             {real ? textoHueco(hueco, cfg.nombreEspacio, yo) : siguiente ? `${finde ? 'El lunes empiezas' : 'Tu próxima hora es'} a las ${siguiente.inicio}` : terminado ? 'Ya has terminado por hoy' : 'Hoy no tienes horario'}

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { ahoraYLuego, celdasDeSemana, EnlacePersona, HorarioSemanal, ProgresoHora, textoHueco } from '../../components/horario';
-import { Avatar, Boton, Contador, cortado, Etiqueta, Mono, Titular } from '../../components/ui';
+import { Avatar, Boton, Contador, cortado, Etiqueta, Foto, Mono, Titular } from '../../components/ui';
 import { daClase, nombreCompleto, persona, TURNOS } from '../../data/equipo';
 import { useCentro } from '../../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../../lib/fechas';
@@ -78,6 +78,7 @@ export default function Ficha() {
 
       <View style={[s.arriba, !ancho && { flexDirection: 'column' }]}>
         <Animated.View entering={entra(1)} style={[s.ahora, cortado(22), ancho && { flex: 1.5 }]}>
+          <Foto de="aulaSol" fuerza={0.26} />
           <Mono style={{ color: ausente ? '#FF8A8A' : color.lima }}>
             {ausente ? 'Ausente hoy' : real ? `Ahora · ${franja!.inicio}–${franja!.fin}` : 'Fuera del horario de clases'}
           </Mono>

@@ -6,7 +6,7 @@ import Animated from 'react-native-reanimated';
 import { EnlacePersona } from '../components/horario';
 import { MiDia } from '../components/mi-dia';
 import { TitularRevela } from '../components/motion';
-import { Avatar, Barra, Contador, cortado, Mono } from '../components/ui';
+import { Avatar, Barra, Contador, cortado, Foto, Mono } from '../components/ui';
 import { esClase } from '../data/centro';
 import { activos, CENTRO, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
@@ -63,6 +63,7 @@ function Hoy() {
 
       {/* Parte del día: el número grande es lo único que hay que mirar */}
       <Animated.View entering={entra(2, 150)} style={[s.parte, cortado(28), { marginTop: 30 }]}>
+        <Foto de="pasillo" fuerza={0.2} />
         <Text style={[s.fondoHoy, { fontSize: ancho ? 200 : 130 }]} numberOfLines={1}>
           HOY
         </Text>

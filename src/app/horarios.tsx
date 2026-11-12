@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } fro
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { celdaDePersona, CeldaHorario, EnlacePersona, FilaPersonas, HorarioSemanal } from '../components/horario';
 import { TitularRevela } from '../components/motion';
-import { Avatar, Barra, Boton, Contador, cortado, Mono } from '../components/ui';
+import { Avatar, Barra, Boton, Contador, cortado, Foto, Mono } from '../components/ui';
 import { DIAS, esLugar, Semana, TurnoFranja } from '../data/centro';
 import { activos, nombreCompleto, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
@@ -360,6 +360,7 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
         <Animated.View entering={entra(0)}>
           {!resultado && fase < 0 && (
             <View style={[s.lanzar, cortado(26)]}>
+              <Foto de="pupitres" fuerza={0.24} />
               <Text style={s.lanzarTitulo}>
                 {grupos.length} grupos, {docentes.length} docentes{'\n'}y {grupos.length * suma} clases a la semana.
               </Text>

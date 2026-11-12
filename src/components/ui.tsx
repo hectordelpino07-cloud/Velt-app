@@ -1,7 +1,7 @@
 // Piezas de interfaz con la marca VELT (esquina cortada, sombras duras, mono)
 // y el movimiento de la app (pulsar, pasar el ratón, contadores, barras).
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Image, Platform, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Polygon } from 'react-native-svg';
 import { color, font } from '../lib/theme';
@@ -66,6 +66,19 @@ export function Panel({
       </View>
     </View>
   );
+}
+
+// Fotos reales del día a día de un centro (Unsplash, sin personas), siempre en
+// gris y muy apagadas detrás de un panel oscuro: dan sitio, no compiten con el texto.
+export const FOTOS = {
+  aula: require('../../assets/fotos/aula.jpg'),
+  aulaSol: require('../../assets/fotos/aula-sol.jpg'),
+  pasillo: require('../../assets/fotos/pasillo.jpg'),
+  pupitres: require('../../assets/fotos/aula-ventanas.jpg'),
+};
+
+export function Foto({ de, fuerza = 0.3 }: { de: keyof typeof FOTOS; fuerza?: number }) {
+  return <Image source={FOTOS[de]} resizeMode="cover" accessibilityElementsHidden importantForAccessibility="no" style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', opacity: fuerza }]} />;
 }
 
 export function Logo({ tam = 30, claro = true, texto = true }: { tam?: number; claro?: boolean; texto?: boolean }) {
