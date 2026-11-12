@@ -144,7 +144,7 @@ export default function Seguimiento() {
 
 function Cifra({ n, l, azul }: { n: number; l: string; azul?: boolean }) {
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, minWidth: 130 }}>
       <Contador valor={n} style={[s.cifraN, azul && { color: color.lima }]} />
       <Text style={s.cifraL}>{l}</Text>
     </View>
@@ -229,7 +229,7 @@ function Fila({ t }: { t: Tarea }) {
 
 const s = StyleSheet.create({
   resumen: { backgroundColor: color.tinta, padding: 26, gap: 18 },
-  cifras: { flexDirection: 'row', gap: 8 },
+  cifras: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, rowGap: 14 },
   cifraN: { fontFamily: font.display, fontSize: 52, letterSpacing: -2, color: color.crema },
   cifraL: { fontFamily: font.ui, fontSize: 13, color: color.grisClaro, marginTop: 2 },
   bloques: { flexDirection: 'row', gap: 32, marginTop: 36, alignItems: 'flex-start' },

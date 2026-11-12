@@ -166,7 +166,7 @@ function Hoy() {
                 </View>
                 <View style={{ flex: 1, paddingBottom: 22 }}>
                   <Text style={s.lineaTitulo}>{t.titulo}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 }}>
                     <EnlacePersona id={t.responsableId}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <Avatar id={t.responsableId} tam={22} />

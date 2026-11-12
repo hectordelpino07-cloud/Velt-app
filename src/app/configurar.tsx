@@ -608,7 +608,7 @@ const s = StyleSheet.create({
   franjaFila: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   franjaHora: { fontFamily: font.monoBold, fontSize: 15, color: color.tinta },
   franjaNombre: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris },
-  segmentos: { flexDirection: 'row' },
+  segmentos: { flexDirection: 'row', flexWrap: 'wrap' },
   segmento: { borderWidth: 1.5, borderColor: color.tinta, paddingVertical: 6, paddingHorizontal: 10, marginLeft: -1.5, maxWidth: 170 },
   segmentoOn: { backgroundColor: color.tinta },
   segmentoTexto: { fontFamily: font.uiBold, fontSize: 13, color: color.tinta },
