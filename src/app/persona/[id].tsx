@@ -5,8 +5,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { ahoraYLuego, celdasDeSemana, EnlacePersona, HorarioSemanal, textoHueco } from '../../components/horario';
-import { Avatar, Boton, cortado, Etiqueta, Mono, Titular } from '../../components/ui';
+import { ahoraYLuego, celdasDeSemana, EnlacePersona, HorarioSemanal, ProgresoHora, textoHueco } from '../../components/horario';
+import { Avatar, Boton, Contador, cortado, Etiqueta, Mono, Titular } from '../../components/ui';
 import { daClase, nombreCompleto, persona, TURNOS } from '../../data/equipo';
 import { useCentro } from '../../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../../lib/fechas';
@@ -42,7 +42,7 @@ export default function Ficha() {
 
   const mio = p.id === yo.id;
   const ausente = cfg.ausentes.includes(p.id);
-  const { real, franja, hueco, siguiente, terminado } = ahoraYLuego(cfg.horario[p.id], cfg.franjas);
+  const { real, franja, hueco, siguiente, terminado, hecho, quedan } = ahoraYLuego(cfg.horario[p.id], cfg.franjas);
   const r = resumenSemana(cfg.semana[p.id]);
   const suyas = tareas.filter((t) => t.responsableId === p.id).sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)));
   const activas = suyas.filter((t) => t.estado !== 'hecha');
@@ -87,9 +87,10 @@ export default function Ficha() {
               {real ? 'Después' : 'Le toca'}: {siguiente.inicio} · {textoHueco(cfg.horario[p.id]?.[siguiente.id], cfg.nombreEspacio, p)}
             </Text>
           ) : null}
+          {real && !ausente && <ProgresoHora hecho={hecho} quedan={quedan} />}
         </Animated.View>
         <Animated.View entering={entra(2)} style={[s.cifras, ancho && { flex: 1 }]}>
-          {daClase(p) && <Cifra n={r.lectivas} l="horas de clase a la semana" />}
+          {daClase(p) && <Cifra n={r.lectivas} l="horas de clase a la semana" anima />}
           {daClase(p) && <Cifra n={r.guardias} l={r.guardias === 1 ? 'guardia' : 'guardias'} />}
           {(gestion || mio) && <Cifra n={activas.length} l={activas.length === 1 ? 'tarea activa' : 'tareas activas'} />}
         </Animated.View>
@@ -231,10 +232,10 @@ export default function Ficha() {
   );
 }
 
-function Cifra({ n, l }: { n: number; l: string }) {
+function Cifra({ n, l, anima }: { n: number; l: string; anima?: boolean }) {
   return (
     <View style={s.cifra}>
-      <Text style={s.cifraN}>{n}</Text>
+      <Contador valor={n} anima={anima} style={s.cifraN} />
       <Text style={s.cifraL}>{l}</Text>
     </View>
   );

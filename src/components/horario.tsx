@@ -9,7 +9,7 @@ import { DIAS, DIAS_CORTO, esLugar, Franja, franjaActual, Hueco, Semana } from '
 import { Persona, persona } from '../data/equipo';
 import { curva } from '../lib/motion';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
-import { Avatar } from './ui';
+import { Avatar, Barra } from './ui';
 
 export type CeldaHorario = {
   tipo: 'clase' | 'guardia' | 'libre' | 'fuera' | 'lugar' | 'aviso';
@@ -58,7 +58,10 @@ export function ahoraYLuego(hoy: Hueco[] | undefined, franjas: Franja[], d = new
   const actual = finde ? undefined : franjas.find((f) => reloj >= min(f.inicio) && reloj < min(f.fin));
   const siguiente = franjas.find((f) => (finde || min(f.inicio) > reloj) && ocupa(hs[f.id]));
   const algo = franjas.some((f) => ocupa(hs[f.id]));
-  return { real: !!actual, franja: actual ?? null, hueco: actual ? hs[actual.id] : undefined, siguiente, terminado: !actual && !siguiente && algo, finde };
+  // Parte de la hora en curso que ya ha pasado (0–1) y minutos que quedan
+  const hecho = actual ? (reloj - min(actual.inicio)) / Math.max(1, min(actual.fin) - min(actual.inicio)) : 0;
+  const quedan = actual ? min(actual.fin) - reloj : 0;
+  return { hecho, quedan, real: !!actual, franja: actual ?? null, hueco: actual ? hs[actual.id] : undefined, siguiente, terminado: !actual && !siguiente && algo, finde };
 }
 
 export function HorarioSemanal({
@@ -86,7 +89,7 @@ export function HorarioSemanal({
     return (
       <Animated.View
         key={`${version}-${d}-${f.id}`}
-        entering={ola ? FadeIn.delay(orden * 22).duration(260).easing(curva) : undefined}
+        entering={ola ? FadeIn.delay(orden * 22).duration(260).easing(curva) : FadeIn.duration(140)}
         style={[s.celda, f.recreo && s.celdaRecreo, esAhora && s.celdaAhora]}
       >
         <Celda c={c} recreo={!!f.recreo} />
@@ -207,6 +210,22 @@ function Celda({ c, recreo }: { c: CeldaHorario; recreo: boolean }) {
     </Pressable>
   );
 }
+
+// Cuánto queda de la hora en curso: una línea que avanza
+export function ProgresoHora({ hecho, quedan }: { hecho: number; quedan: number }) {
+  return (
+    <View style={{ marginTop: 18, gap: 6 }}>
+      <Barra alto={4} vacio="#232838" total={1} tramos={[{ valor: hecho, color: color.lima }]} />
+      <Text style={{ fontFamily: font.uiMedium, fontSize: 12, color: color.grisClaro }}>
+        {quedan <= 1 ? 'Termina ahora' : `Quedan ${quedan} min`}
+      </Text>
+    </View>
+  );
+}
+
+// Tarjeta que se levanta un poco al pasar el ratón (solo en la web hay ratón)
+export const levanta = (hovered?: boolean) =>
+  ({ transitionProperty: 'transform', transitionDuration: '160ms', transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)', transform: [{ translateY: hovered ? -3 : 0 }] }) as never;
 
 // Nombre de una persona que lleva a su ficha (horario, tareas y mensajes)
 export function EnlacePersona({ id, children, style }: { id: string; children: ReactNode; style?: object }) {

@@ -4,7 +4,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { celdaDePersona, CeldaHorario, EnlacePersona, FilaPersonas, HorarioSemanal } from '../components/horario';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Mono } from '../components/ui';
@@ -392,8 +392,9 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
             <Animated.View entering={asoma()} style={[s.lanzar, cortado(26)]}>
               <Mono style={{ color: color.lima }}>Creando el horario</Mono>
               <Text style={[s.lanzarTitulo, { marginTop: 10 }]}>{FASES[fase]}</Text>
-              <View style={{ marginTop: 22 }}>
-                <Barra key={fase} alto={8} vacio="#232838" total={FASES.length} tramos={[{ valor: fase + 1, color: color.lima }]} />
+              <RejillaCreando />
+              <View style={{ marginTop: 18 }}>
+                <Barra key={fase} alto={6} vacio="#232838" total={FASES.length} tramos={[{ valor: fase + 1, color: color.lima }]} />
               </View>
             </Animated.View>
           )}
@@ -451,6 +452,28 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
           )}
         </Animated.View>
       )}
+    </View>
+  );
+}
+
+// Mientras VELT calcula, una semana en pequeño se va llenando de clases
+const TONOS_REJILLA = [color.cobalto, color.lima, '#3A4058', color.crema, color.cobalto, '#7A8CFF'];
+function RejillaCreando() {
+  return (
+    <View style={s.rejillaCreando} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {Array.from({ length: 6 }, (_, f) => (
+        <View key={f} style={{ flexDirection: 'row', gap: 5 }}>
+          {Array.from({ length: 5 }, (_, d) => {
+            // Orden revuelto pero fijo: parece que las clases van encontrando su hueco
+            const orden = (d * 7 + f * 11) % 30;
+            return (
+              <View key={d} style={s.celdaCreando}>
+                <Animated.View entering={FadeIn.delay(120 + orden * 48).duration(180)} style={[StyleSheet.absoluteFill, { backgroundColor: TONOS_REJILLA[(d * 3 + f * 5) % TONOS_REJILLA.length] }]} />
+              </View>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -593,6 +616,8 @@ const s = StyleSheet.create({
   cobertura: { marginTop: 18, borderLeftWidth: 4, borderColor: color.lima, paddingLeft: 14, paddingVertical: 4, gap: 4 },
   coberturaTitulo: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   coberturaTexto: { fontFamily: font.ui, fontSize: 13, lineHeight: 19, color: color.gris },
+  rejillaCreando: { gap: 5, marginTop: 22, maxWidth: 420 },
+  celdaCreando: { flex: 1, height: 22, backgroundColor: '#1A1D27' },
   lanzar: { backgroundColor: color.tinta, padding: 30, marginTop: 26 },
   lanzarTitulo: { fontFamily: font.display, fontSize: 30, lineHeight: 31, letterSpacing: -0.8, color: color.crema, textTransform: 'uppercase' },
   lanzarTexto: { fontFamily: font.ui, fontSize: 15, lineHeight: 22, color: color.grisClaro, marginTop: 14, maxWidth: 560 },

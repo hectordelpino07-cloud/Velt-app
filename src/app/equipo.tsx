@@ -1,8 +1,9 @@
 // Equipo: todas las personas del centro y dónde está cada una ahora mismo.
 // Al tocar a alguien se abre su ficha, con su horario y para escribirle.
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { ahoraYLuego, EnlacePersona, textoHueco } from '../components/horario';
+import { ahoraYLuego, levanta, textoHueco } from '../components/horario';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Mono } from '../components/ui';
 import { esClase } from '../data/centro';
@@ -49,8 +50,9 @@ export default function Equipo() {
                 const enClase = real && !ausente && esClase(hueco);
                 const guardia = real && !ausente && hueco === 'guardia';
                 return (
-                  <EnlacePersona key={p.id} id={p.id} style={[s.tarjeta, !ancho && { width: '100%' }]}>
-                    <View style={s.dentro}>
+                  <Pressable key={p.id} onPress={() => router.navigate(`/persona/${p.id}`)} accessibilityRole="link" accessibilityLabel={`Ver la ficha de ${p.nombre}`} style={[s.tarjeta, !ancho && { width: '100%' }]}>
+                    {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                    <View style={[s.dentro, levanta(hovered), hovered && { borderColor: color.tinta }]}>
                       <Avatar id={p.id} tam={40} activo={p.id === yo.id} />
                       <View style={{ flex: 1 }}>
                         <Text style={s.nombre}>
@@ -66,7 +68,8 @@ export default function Equipo() {
                         </Text>
                       </View>
                     </View>
-                  </EnlacePersona>
+                    )}
+                  </Pressable>
                 );
               })}
             </View>

@@ -4,6 +4,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { levanta } from '../components/horario';
 import { TitularRevela } from '../components/motion';
 import { Avatar, cortado, Mono } from '../components/ui';
 import { activos, esGestion, nombreCompleto } from '../data/equipo';
@@ -51,7 +52,7 @@ export default function Entrar() {
                   style={!ancho && { width: '100%' }}
                 >
                   {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
-                    <View style={[s.tarjeta, cortado(12), on && { backgroundColor: color.tinta }, hovered && !on && { backgroundColor: '#FBFAF6' }]}>
+                    <View style={[s.tarjeta, cortado(12), levanta(hovered), on && { backgroundColor: color.tinta }]}>
                       <Avatar id={p.id} tam={38} activo={on} />
                       <View style={{ flex: 1 }}>
                         <Text style={[s.nombre, on && { color: color.crema }]}>{nombreCompleto(p)}</Text>

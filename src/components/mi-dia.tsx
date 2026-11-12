@@ -10,7 +10,7 @@ import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { entra, entraLado } from '../lib/motion';
 import { useVelt, useYo } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
-import { ahoraYLuego, textoHueco, tonoMateria } from './horario';
+import { ahoraYLuego, ProgresoHora, textoHueco, tonoMateria } from './horario';
 import { TitularRevela } from './motion';
 import { Boton, Contador, cortado, Etiqueta, Mono } from './ui';
 
@@ -26,7 +26,7 @@ export function MiDia() {
   const { yo } = useYo();
   const { tareas, avisos } = useVelt();
   const hoy = cfg.horario[yo.id] ?? [];
-  const { real, franja, hueco, siguiente, terminado, finde } = ahoraYLuego(hoy, cfg.franjas);
+  const { real, franja, hueco, siguiente, terminado, finde, hecho, quedan } = ahoraYLuego(hoy, cfg.franjas);
   const mias = tareas.filter((t) => t.responsableId === yo.id && t.estado !== 'hecha').sort((a, b) => claveOrden(a).localeCompare(claveOrden(b)));
   const porConfirmar = mias.filter((t) => t.estado === 'pendiente').length;
   const sinLeer = avisos.filter((a) => a.para === yo.id && !a.leido).length;
@@ -53,6 +53,7 @@ export function MiDia() {
               {real ? 'Después' : 'Te toca'}: {siguiente.inicio} · {textoHueco(hoy[siguiente.id], cfg.nombreEspacio, yo)}
             </Text>
           ) : null}
+          {real && <ProgresoHora hecho={hecho} quedan={quedan} />}
         </Animated.View>
         <View style={[s.atajos, ancho && { flex: 1 }]}>
           <Atajo i={0} n={porConfirmar} l={porConfirmar === 1 ? 'tarea por confirmar' : 'tareas por confirmar'} bg={porConfirmar ? color.cobalto : color.blanco} claro={!!porConfirmar} ruta="/mis-tareas" />
