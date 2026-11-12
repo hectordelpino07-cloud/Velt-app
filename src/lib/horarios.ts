@@ -81,6 +81,9 @@ function intento(e: Entrada, semilla: number) {
   const libres = e.soloPara ? new Set(e.soloPara) : null; // a quién se le crea horario
   const seCrea = (id: string) => !libres || libres.has(id);
 
+  // Cada docente puede tener horas en las que no trabaja (entra más tarde, se va antes, un día libre…)
+  const puede = (id: string, d: number, f: number) => !porId[id]?.noPuede?.includes(`${d}:${f}`);
+
   const tabla = () => Array.from({ length: N_DIAS }, () => new Array<number>(F).fill(-1));
   const ocG = grupos.map(tabla);
   const ocP: Record<string, number[][]> = Object.fromEntries(docentes.map((p) => [p.id, tabla()]));
@@ -125,7 +128,9 @@ function intento(e: Entrada, semilla: number) {
   // 2 · Quién da cada bloque: primero lo que menos gente puede dar. Entre
   // quienes pueden, antes quien solo da esa materia (así completa su jornada)
   // y, a igualdad, quien tiene más parte de su jornada libre
-  const resto: Record<string, number> = Object.fromEntries(docentes.map((p) => [p.id, horasDe(p, plan) - (cargaFija[p.id] ?? 0)]));
+  // Nadie puede dar más clases que horas tiene disponibles en la semana
+  const libresDe = (p: Persona) => franjas.filter((f) => !f.recreo && enTurno(p, f.turno)).reduce((n, f) => n + Array.from({ length: N_DIAS }, (_, d) => d).filter((d) => puede(p.id, d, f.id)).length, 0);
+  const resto: Record<string, number> = Object.fromEntries(docentes.map((p) => [p.id, Math.min(horasDe(p, plan), libresDe(p)) - (cargaFija[p.id] ?? 0)]));
   const tope: Record<string, number> = Object.fromEntries(docentes.map((p) => [p.id, Math.max(1, horasDe(p, plan))]));
   const sabe: Record<string, number> = Object.fromEntries(docentes.map((p) => [p.id, plan.materias.filter((m) => m.horas > 0 && m.profes.includes(p.id)).length]));
   const candidatos = (b: Bloque) => b.m.profes.filter((id) => porId[id] && seCrea(id) && enTurno(porId[id], turnos[b.g]));
@@ -163,7 +168,7 @@ function intento(e: Entrada, semilla: number) {
   const maxDia = (b: Bloque) => Math.ceil(b.m.horas / N_DIAS);
   const cabe = (bi: number, d: number, f: number) => {
     const b = bloques[bi];
-    return ocG[b.g][d][f] === -1 && ocP[b.profe!][d][f] === -1 && (!b.sala || sala(b.sala)[d][f] === -1) && b.porDia[d] < maxDia(b);
+    return puede(b.profe!, d, f) && ocG[b.g][d][f] === -1 && ocP[b.profe!][d][f] === -1 && (!b.sala || sala(b.sala)[d][f] === -1) && b.porDia[d] < maxDia(b);
   };
   const clasesDia = (p: string, d: number) => ocP[p][d].reduce((n, x) => n + (x !== -1 ? 1 : 0), 0);
   const coste = (bi: number, d: number, f: number) => {
@@ -196,7 +201,7 @@ function intento(e: Entrada, semilla: number) {
     const b = bloques[bi];
     const sitios = huecosG[b.g].flatMap((f) => Array.from({ length: N_DIAS }, (_, d) => ({ d, f, r: rnd() }))).sort((x, y) => x.r - y.r);
     for (const { d, f } of sitios) {
-      if (b.porDia[d] >= maxDia(b)) continue;
+      if (b.porDia[d] >= maxDia(b) || !puede(b.profe!, d, f)) continue;
       const estorban = [...new Set([ocG[b.g][d][f], ocP[b.profe!][d][f], b.sala ? sala(b.sala)[d][f] : -1].filter((x) => x !== -1))];
       if (!estorban.length || estorban.length > 2 || estorban.includes(FIJO) || estorban.includes(bi)) continue;
       estorban.forEach((x) => quitar(x, d, f));
@@ -292,7 +297,7 @@ function montar(e: Entrada, x: Intento): Pick<Resultado, 'semana' | 'avisos' | '
   for (const p of creados)
     semana[p.id] = Array.from({ length: N_DIAS }, (_, d) =>
       franjas.map((f): Hueco => {
-        if (!enTurno(p, f.turno)) return 'fuera';
+        if (!enTurno(p, f.turno) || p.noPuede?.includes(`${d}:${f.id}`)) return 'fuera';
         const bi = ocP[p.id][d][f.id];
         if (bi < 0) return 'libre';
         const b = bloques[bi];

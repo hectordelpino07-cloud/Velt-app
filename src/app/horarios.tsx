@@ -161,6 +161,7 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [soloPara, setSoloPara] = useState<string[]>([]);
   const [encajar, setEncajar] = useState(false);
+  const [disponibilidad, setDisponibilidad] = useState<string | null>(null);
 
   const { plan, franjas } = cfg;
   const grupos = gruposDe(cfg.espacios);
@@ -316,7 +317,8 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
           </View>
           <View style={{ marginTop: 8 }}>
             {docentes.map((p) => (
-              <View key={p.id} style={s.docente}>
+              <View key={p.id} style={s.docenteCaja}>
+              <View style={s.docente}>
                 <EnlacePersona id={p.id} style={{ width: 150 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <Avatar id={p.id} tam={30} />
@@ -343,6 +345,13 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
                   })}
                 </View>
                 <Contar valor={horasDe(p, plan)} min={0} max={30} sufijo="h" onCambia={(n) => cfg.editarPersona(p.id, { horas: n })} />
+              </View>
+              <Pressable onPress={() => setDisponibilidad((x) => (x === p.id ? null : p.id))} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginLeft: 40 }}>
+                <Text style={[s.dispEnlace, p.noPuede?.length ? { color: color.cobalto } : null]}>
+                  {p.noPuede?.length ? `No trabaja ${p.noPuede.length} ${p.noPuede.length === 1 ? 'hora' : 'horas'} de la semana` : 'Trabaja toda la jornada'} {disponibilidad === p.id ? '▴' : '▾'}
+                </Text>
+              </Pressable>
+              {disponibilidad === p.id && <Disponibilidad id={p.id} />}
               </View>
             ))}
           </View>
@@ -454,6 +463,56 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
         </Animated.View>
       )}
     </View>
+  );
+}
+
+// Las horas de la semana en las que una persona no trabaja. Al tocar una
+// celda se marca o se desmarca; al tocar la hora, toda la fila.
+function Disponibilidad({ id }: { id: string }) {
+  const cfg = useCentro();
+  const p = cfg.personal.find((x) => x.id === id);
+  if (!p) return null;
+  const no = p.noPuede ?? [];
+  const horas = cfg.franjas.filter((f) => !f.recreo && (p.turno === 'ambos' || p.turno === f.turno));
+  const cambiar = (claves: string[]) => {
+    const todas = claves.every((k) => no.includes(k));
+    cfg.editarPersona(id, { noPuede: todas ? no.filter((k) => !claves.includes(k)) : [...new Set([...no, ...claves])] });
+  };
+  return (
+    <Animated.View entering={entra(0)} style={s.disp}>
+      <Text style={s.dispAyuda}>Marca en oscuro las horas en las que {p.nombre} no trabaja. VELT no le pondrá clases ni guardias ahí.</Text>
+      <View style={s.dispFila}>
+        <View style={s.dispHora} />
+        {DIAS.map((n, d) => (
+          <Pressable key={n} onPress={() => cambiar(horas.map((f) => `${d}:${f.id}`))} accessibilityRole="button" accessibilityLabel={`Todo el ${n.toLowerCase()}`} style={s.dispDia}>
+            <Text style={s.dispDiaTexto}>{n.slice(0, 3)}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {horas.map((f) => (
+        <View key={f.id} style={s.dispFila}>
+          <Pressable onPress={() => cambiar(DIAS.map((_, d) => `${d}:${f.id}`))} accessibilityRole="button" accessibilityLabel={`${f.nombre}, toda la semana`} style={s.dispHora}>
+            <Text style={s.dispHoraTexto}>{f.inicio}</Text>
+          </Pressable>
+          {DIAS.map((n, d) => {
+            const fuera = no.includes(`${d}:${f.id}`);
+            return (
+              <Pressable
+                key={n}
+                onPress={() => cambiar([`${d}:${f.id}`])}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: fuera }}
+                accessibilityLabel={`${n} a las ${f.inicio}: ${fuera ? 'no trabaja' : 'trabaja'}`}
+                style={[s.dispCelda, fuera && { backgroundColor: color.tinta, borderColor: color.tinta }]}
+              >
+                <Text style={[s.dispCeldaTexto, fuera && { color: color.grisClaro }]}>{fuera ? 'No' : ''}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+      <Text style={s.dispAyuda}>Toca una hora o un día para marcar la fila o la columna entera.</Text>
+    </Animated.View>
   );
 }
 
@@ -608,7 +667,18 @@ const s = StyleSheet.create({
   contarBoton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E7E3D8' },
   contarSigno: { fontFamily: font.uiBold, fontSize: 16, color: color.tinta },
   contarN: { fontFamily: font.monoBold, fontSize: 13, color: color.tinta, minWidth: 44, textAlign: 'center' },
-  docente: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.borde },
+  docenteCaja: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.borde, gap: 6 },
+  docente: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  dispEnlace: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, paddingVertical: 4 },
+  disp: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 14, gap: 4, maxWidth: 520, marginTop: 4 },
+  dispAyuda: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.gris, marginVertical: 4 },
+  dispFila: { flexDirection: 'row', gap: 4 },
+  dispHora: { width: 52, height: 32, justifyContent: 'center' },
+  dispHoraTexto: { fontFamily: font.monoBold, fontSize: 12, color: color.tinta },
+  dispDia: { flex: 1, height: 26, alignItems: 'center', justifyContent: 'center' },
+  dispDiaTexto: { fontFamily: font.uiBold, fontSize: 12, color: color.tinta },
+  dispCelda: { flex: 1, height: 32, borderWidth: 1, borderColor: color.borde, backgroundColor: '#F7F5EF', alignItems: 'center', justifyContent: 'center' },
+  dispCeldaTexto: { fontFamily: font.uiMedium, fontSize: 11, color: color.gris },
   docenteNombre: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta },
   docenteRol: { fontFamily: font.ui, fontSize: 12, color: color.gris },
   da: { paddingVertical: 5, paddingHorizontal: 9, borderWidth: 1, borderColor: color.borde },
