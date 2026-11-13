@@ -8,6 +8,14 @@
 import { Clase, DIAS, esClase, esLugar, Espacio, Franja, Hueco, MateriaPlan, Plan, Semana, TurnoFranja } from '../data/centro';
 import { daClase, Persona } from '../data/equipo';
 
+// ¿Trabaja esta persona en esta hora? Respeta su hora de entrada y de salida
+// y las horas sueltas que haya marcado como no disponibles.
+export function trabaja(p: Persona, d: number, f: Franja) {
+  if (p.entra && f.inicio < p.entra) return false;
+  if (p.sale && f.fin > p.sale) return false;
+  return !p.noPuede?.includes(`${d}:${f.id}`);
+}
+
 export type AvisoHorario = { tipo: 'plan' | 'falta' | 'sincolocar' | 'guardia'; texto: string };
 
 export type DatosProfe = { lectivas: number; maximo: number; guardias: number; huecos: number };
@@ -82,7 +90,7 @@ function intento(e: Entrada, semilla: number) {
   const seCrea = (id: string) => !libres || libres.has(id);
 
   // Cada docente puede tener horas en las que no trabaja (entra más tarde, se va antes, un día libre…)
-  const puede = (id: string, d: number, f: number) => !porId[id]?.noPuede?.includes(`${d}:${f}`);
+  const puede = (id: string, d: number, f: number) => !porId[id] || trabaja(porId[id], d, franjas[f]);
 
   const tabla = () => Array.from({ length: N_DIAS }, () => new Array<number>(F).fill(-1));
   const ocG = grupos.map(tabla);
@@ -297,7 +305,7 @@ function montar(e: Entrada, x: Intento): Pick<Resultado, 'semana' | 'avisos' | '
   for (const p of creados)
     semana[p.id] = Array.from({ length: N_DIAS }, (_, d) =>
       franjas.map((f): Hueco => {
-        if (!enTurno(p, f.turno) || p.noPuede?.includes(`${d}:${f.id}`)) return 'fuera';
+        if (!enTurno(p, f.turno) || !trabaja(p, d, f)) return 'fuera';
         const bi = ocP[p.id][d][f.id];
         if (bi < 0) return 'libre';
         const b = bloques[bi];

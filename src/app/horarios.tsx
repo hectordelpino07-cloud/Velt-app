@@ -8,10 +8,10 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { celdaDePersona, CeldaHorario, EnlacePersona, FilaPersonas, HorarioSemanal } from '../components/horario';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Barra, Boton, Contador, cortado, Foto, Mono } from '../components/ui';
-import { DIAS, esLugar, Semana, TurnoFranja } from '../data/centro';
-import { activos, nombreCompleto, persona } from '../data/equipo';
+import { DIAS, esLugar, Franja, Semana, TurnoFranja } from '../data/centro';
+import { activos, nombreCompleto, Persona, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
-import { claseDeGrupo, docentesDe, generar, gruposDe, horasDe, horasSemana, Resultado, resumenSemana, turnoDeGrupo } from '../lib/horarios';
+import { claseDeGrupo, docentesDe, generar, gruposDe, horasDe, horasSemana, Resultado, resumenSemana, trabaja, turnoDeGrupo } from '../lib/horarios';
 import { asoma, entra, vibra } from '../lib/motion';
 import { hace, useVelt, useYo } from '../lib/store';
 import { useToast } from '../lib/toast';
@@ -347,8 +347,8 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
                 <Contar valor={horasDe(p, plan)} min={0} max={30} sufijo="h" onCambia={(n) => cfg.editarPersona(p.id, { horas: n })} />
               </View>
               <Pressable onPress={() => setDisponibilidad((x) => (x === p.id ? null : p.id))} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginLeft: 40 }}>
-                <Text style={[s.dispEnlace, p.noPuede?.length ? { color: color.cobalto } : null]}>
-                  {p.noPuede?.length ? `No trabaja ${p.noPuede.length} ${p.noPuede.length === 1 ? 'hora' : 'horas'} de la semana` : 'Trabaja toda la jornada'} {disponibilidad === p.id ? '▴' : '▾'}
+                <Text style={[s.dispEnlace, p.entra || p.sale || p.noPuede?.length ? { color: color.cobalto } : null]}>
+                  {resumenJornada(p, cfg.franjas)} {disponibilidad === p.id ? '▴' : '▾'}
                 </Text>
               </Pressable>
               {disponibilidad === p.id && <Disponibilidad id={p.id} />}
@@ -466,54 +466,116 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
   );
 }
 
-// Las horas de la semana en las que una persona no trabaja. Al tocar una
-// celda se marca o se desmarca; al tocar la hora, toda la fila.
+// «Trabaja de 10:15 a 18:30 · 2 horas libres más», para la fila de cada docente
+function resumenJornada(p: Persona, franjas: Franja[]) {
+  const suyas = franjas.filter((f) => !f.recreo && (p.turno === 'ambos' || p.turno === f.turno));
+  if (!suyas.length) return 'Sin horas en la jornada';
+  const desde = p.entra ?? suyas[0].inicio;
+  const hasta = p.sale ?? suyas[suyas.length - 1].fin;
+  const sueltas = p.noPuede?.length ?? 0;
+  const base = p.entra || p.sale ? `Trabaja de ${desde} a ${hasta}` : `Toda la jornada, de ${desde} a ${hasta}`;
+  return sueltas ? `${base} · ${sueltas} ${sueltas === 1 ? 'hora libre' : 'horas libres'} más` : base;
+}
+
+// La jornada de una persona: a qué hora entra y a qué hora sale, y, si hace
+// falta, horas sueltas de la semana en las que no puede (tocando la rejilla).
 function Disponibilidad({ id }: { id: string }) {
   const cfg = useCentro();
   const p = cfg.personal.find((x) => x.id === id);
   if (!p) return null;
   const no = p.noPuede ?? [];
   const horas = cfg.franjas.filter((f) => !f.recreo && (p.turno === 'ambos' || p.turno === f.turno));
+  if (!horas.length) return null;
+  const horaEntra = p.entra ?? horas[0].inicio;
+  const horaSale = p.sale ?? horas[horas.length - 1].fin;
   const cambiar = (claves: string[]) => {
     const todas = claves.every((k) => no.includes(k));
     cfg.editarPersona(id, { noPuede: todas ? no.filter((k) => !claves.includes(k)) : [...new Set([...no, ...claves])] });
   };
+  // Al mover la entrada o la salida se quitan las marcas sueltas que ya quedan fuera
+  const ponerJornada = (nuevaEntra: string, nuevaSale: string) => {
+    const primera = horas[0].inicio === nuevaEntra;
+    const ultima = horas[horas.length - 1].fin === nuevaSale;
+    const dentro = (k: string) => {
+      const f = cfg.franjas[Number(k.split(':')[1])];
+      return !!f && f.inicio >= nuevaEntra && f.fin <= nuevaSale;
+    };
+    cfg.editarPersona(id, { entra: primera ? undefined : nuevaEntra, sale: ultima ? undefined : nuevaSale, noPuede: no.filter(dentro) });
+  };
+  const horasDia = horas.filter((f) => f.inicio >= horaEntra && f.fin <= horaSale).length;
+
   return (
     <Animated.View entering={entra(0)} style={s.disp}>
-      <Text style={s.dispAyuda}>Marca en oscuro las horas en las que {p.nombre} no trabaja. VELT no le pondrá clases ni guardias ahí.</Text>
+      <Text style={s.dispTitulo}>¿En qué horario trabaja {p.nombre}?</Text>
+      <Text style={s.dispEtiqueta}>Entra a las</Text>
+      <View style={s.horasElegir}>
+        {horas.map((f) => {
+          const on = f.inicio === horaEntra;
+          const imposible = f.inicio >= horaSale;
+          return (
+            <Pressable key={f.id} disabled={imposible} onPress={() => ponerJornada(f.inicio, horaSale)} accessibilityRole="radio" accessibilityState={{ checked: on, disabled: imposible }} style={[s.horaChip, on && s.horaChipOn, imposible && { opacity: 0.3 }]}>
+              <Text style={[s.horaChipTexto, on && { color: color.lima }]}>{f.inicio}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={s.dispEtiqueta}>Sale a las</Text>
+      <View style={s.horasElegir}>
+        {horas.map((f) => {
+          const on = f.fin === horaSale;
+          const imposible = f.fin <= horaEntra;
+          return (
+            <Pressable key={f.id} disabled={imposible} onPress={() => ponerJornada(horaEntra, f.fin)} accessibilityRole="radio" accessibilityState={{ checked: on, disabled: imposible }} style={[s.horaChip, on && s.horaChipOn, imposible && { opacity: 0.3 }]}>
+              <Text style={[s.horaChipTexto, on && { color: color.lima }]}>{f.fin}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={s.dispAyuda}>
+        {horasDia} {horasDia === 1 ? 'hora' : 'horas'} de clase al día como máximo. VELT no le pondrá clases ni guardias fuera de este horario.
+      </Text>
+
+      <Text style={[s.dispEtiqueta, { marginTop: 10 }]}>Horas sueltas en las que tampoco puede (opcional)</Text>
       <View style={s.dispFila}>
         <View style={s.dispHora} />
         {DIAS.map((n, d) => (
-          <Pressable key={n} onPress={() => cambiar(horas.map((f) => `${d}:${f.id}`))} accessibilityRole="button" accessibilityLabel={`Todo el ${n.toLowerCase()}`} style={s.dispDia}>
+          <Pressable key={n} onPress={() => cambiar(horas.filter((f) => trabajaEnJornada(f)).map((f) => `${d}:${f.id}`))} accessibilityRole="button" accessibilityLabel={`Todo el ${n.toLowerCase()}`} style={s.dispDia}>
             <Text style={s.dispDiaTexto}>{n.slice(0, 3)}</Text>
           </Pressable>
         ))}
       </View>
-      {horas.map((f) => (
-        <View key={f.id} style={s.dispFila}>
-          <Pressable onPress={() => cambiar(DIAS.map((_, d) => `${d}:${f.id}`))} accessibilityRole="button" accessibilityLabel={`${f.nombre}, toda la semana`} style={s.dispHora}>
-            <Text style={s.dispHoraTexto}>{f.inicio}</Text>
-          </Pressable>
-          {DIAS.map((n, d) => {
-            const fuera = no.includes(`${d}:${f.id}`);
-            return (
-              <Pressable
-                key={n}
-                onPress={() => cambiar([`${d}:${f.id}`])}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: fuera }}
-                accessibilityLabel={`${n} a las ${f.inicio}: ${fuera ? 'no trabaja' : 'trabaja'}`}
-                style={[s.dispCelda, fuera && { backgroundColor: color.tinta, borderColor: color.tinta }]}
-              >
-                <Text style={[s.dispCeldaTexto, fuera && { color: color.grisClaro }]}>{fuera ? 'No' : ''}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ))}
-      <Text style={s.dispAyuda}>Toca una hora o un día para marcar la fila o la columna entera.</Text>
+      {horas.map((f) => {
+        const enJornada = trabajaEnJornada(f);
+        return (
+          <View key={f.id} style={s.dispFila}>
+            <Pressable disabled={!enJornada} onPress={() => cambiar(DIAS.map((_, d) => `${d}:${f.id}`))} accessibilityRole="button" accessibilityLabel={`${f.nombre}, toda la semana`} style={s.dispHora}>
+              <Text style={[s.dispHoraTexto, !enJornada && { color: color.gris }]}>{f.inicio}</Text>
+            </Pressable>
+            {DIAS.map((n, d) => {
+              const fuera = !trabaja(p, d, f);
+              return (
+                <Pressable
+                  key={n}
+                  disabled={!enJornada}
+                  onPress={() => cambiar([`${d}:${f.id}`])}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: fuera, disabled: !enJornada }}
+                  accessibilityLabel={`${n} a las ${f.inicio}: ${fuera ? 'no trabaja' : 'trabaja'}`}
+                  style={[s.dispCelda, fuera && (enJornada ? { backgroundColor: color.tinta, borderColor: color.tinta } : s.dispCeldaFuera)]}
+                >
+                  <Text style={[s.dispCeldaTexto, fuera && enJornada && { color: color.grisClaro }]}>{fuera ? (enJornada ? 'No' : '') : ''}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      })}
     </Animated.View>
   );
+
+  function trabajaEnJornada(f: Franja) {
+    return f.inicio >= horaEntra && f.fin <= horaSale;
+  }
 }
 
 // Mientras VELT calcula, una semana en pequeño se va llenando de clases
@@ -671,6 +733,13 @@ const s = StyleSheet.create({
   docente: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   dispEnlace: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, paddingVertical: 4 },
   disp: { backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 14, gap: 4, maxWidth: 520, marginTop: 4 },
+  dispTitulo: { fontFamily: font.uiBold, fontSize: 14, color: color.tinta, marginBottom: 6 },
+  dispEtiqueta: { fontFamily: font.uiMedium, fontSize: 12, color: color.gris, marginTop: 6 },
+  horasElegir: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  horaChip: { paddingVertical: 6, paddingHorizontal: 9, borderWidth: 1, borderColor: color.borde, backgroundColor: '#F7F5EF' },
+  horaChipOn: { backgroundColor: color.tinta, borderColor: color.tinta },
+  horaChipTexto: { fontFamily: font.monoBold, fontSize: 12, color: color.tinta },
+  dispCeldaFuera: { backgroundColor: '#E7E3D8', borderColor: '#E7E3D8' },
   dispAyuda: { fontFamily: font.ui, fontSize: 12, lineHeight: 18, color: color.gris, marginVertical: 4 },
   dispFila: { flexDirection: 'row', gap: 4 },
   dispHora: { width: 52, height: 32, justifyContent: 'center' },

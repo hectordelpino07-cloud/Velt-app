@@ -13,7 +13,9 @@ export type Persona = {
   turno: Turno;
   materia?: string;
   horas?: number; // horas de clase a la semana, si no son las del centro
-  noPuede?: string[]; // horas en las que no trabaja, como 'día:franja' (0 = lunes)
+  entra?: string; // hora a la que empieza a trabajar («10:15»); sin ella, desde la primera hora
+  sale?: string; // hora a la que termina («18:30»); sin ella, hasta la última
+  noPuede?: string[]; // además, horas sueltas en las que no trabaja, como 'día:franja' (0 = lunes)
   baja?: boolean; // dada de baja: se conserva para no romper tareas antiguas
   // Palabras con las que el director puede referirse a esta persona sin decir su nombre
   alias?: string[];
