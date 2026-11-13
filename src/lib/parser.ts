@@ -249,12 +249,14 @@ export function analizarIdea(texto: string, cargaActual: Record<string, number> 
 // tiene menos tareas. Nunca al director ni a quien la idea pide no cargar.
 function candidatos(titulo: string, excluidos: string[], carga: Record<string, number>): Opcion[] {
   const t = norm(titulo);
+  // Por su puesto, no por su nombre: así funciona en cualquier centro
+  const conRol = (rol: Persona['rol']) => activos().find((p) => p.rol === rol)?.id ?? null;
   const pista = /abrir|cerrar|llave|conserj|salon|montar|sillas|mover/.test(t)
-    ? 'carmen'
+    ? conRol('Conserjería')
     : /fotocop|imprim|secretar|matricul|certificad|correo|familias/.test(t)
-      ? 'luis'
+      ? conRol('Secretaría')
       : /horario|cuadrante/.test(t)
-        ? 'ines'
+        ? conRol('Jefatura')
         : null;
   return activos().filter((p) => p.id !== DIRECTOR.id && !excluidos.includes(p.id))
     .map((p) => ({ p, c: carga[p.id] ?? 0 }))

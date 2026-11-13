@@ -3,7 +3,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-goog
 import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import { Redirect, Slot, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -13,6 +13,7 @@ import { Avatar, cortado, Logo, Mono } from '../components/ui';
 import { CENTRO, nombreCompleto } from '../data/equipo';
 import { curva } from '../lib/motion';
 import { CentroProvider, useCentro } from '../lib/centro';
+import { SesionProvider, useSesion } from '../lib/sesion';
 import { useVelt, useYo, VeltProvider } from '../lib/store';
 import { ToastProvider } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -58,15 +59,19 @@ export default function Raiz() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
-      <VeltProvider>
-        <CentroProvider>
-          <ToastProvider>
-            <StatusBar style="light" />
-            <Marco />
-            <Intro />
-          </ToastProvider>
-        </CentroProvider>
-      </VeltProvider>
+      <SesionProvider>
+        <Puerta>
+          <VeltProvider>
+            <CentroProvider>
+              <ToastProvider>
+                <StatusBar style="light" />
+                <Marco />
+                <Intro />
+              </ToastProvider>
+            </CentroProvider>
+          </VeltProvider>
+        </Puerta>
+      </SesionProvider>
     </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -92,7 +97,27 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
   document.head.appendChild(estilo);
 }
 
+// Antes de enseñar la app: ¿demo o cuenta? ¿ya está dentro de un centro?
+function Puerta({ children }: { children: ReactNode }) {
+  const { modo, cargando, miembro, correo } = useSesion();
+  const ruta = usePathname();
+  if (cargando) return <View style={{ flex: 1, backgroundColor: color.tinta }} />;
+  const fuera = modo === null || (modo === 'real' && (!correo || !miembro));
+  if (ruta === '/acceso')
+    return (
+      <ToastProvider>
+        <StatusBar style="light" />
+        <ScrollView style={{ flex: 1, backgroundColor: color.crema }} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          <Slot />
+        </ScrollView>
+      </ToastProvider>
+    );
+  if (fuera) return <Redirect href="/acceso" />;
+  return <>{children}</>;
+}
+
 function Marco() {
+  const sesion = useSesion();
   const { width } = useWindowDimensions();
   const ancho = width >= ANCHO_ESCRITORIO;
   const ruta = usePathname();
@@ -174,6 +199,18 @@ function Marco() {
             <Text style={s.centroDato}>
               {espacios.length} espacios · {materiales.length} materiales
             </Text>
+            {sesion.modo === 'demo' && (
+              <Pressable
+                onPress={() => {
+                  sesion.salirDeDemo();
+                  router.replace('/acceso');
+                }}
+                accessibilityRole="link"
+                style={s.configurar}
+              >
+                {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.configurarTexto, { color: color.lima }, hovered && { textDecorationLine: 'underline' }]}>Estás en la demo · Entrar con tu centro →</Text>}
+              </Pressable>
+            )}
             {gestion && (
               <Pressable onPress={() => router.navigate('/configurar')} accessibilityRole="link" style={s.configurar}>
                 {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
@@ -194,9 +231,15 @@ function Marco() {
                 <Text style={s.yoCentro}>{yo.rol}</Text>
               </View>
             </Pressable>
-            <Pressable onPress={() => router.navigate('/entrar')} accessibilityRole="link" accessibilityLabel="Cambiar de persona">
-              {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.configurarTexto, (hovered || ruta === '/entrar') && { color: color.lima }]}>Cambiar</Text>}
-            </Pressable>
+            {sesion.modo === 'real' ? (
+              <Pressable onPress={sesion.salir} accessibilityRole="button" accessibilityLabel="Cerrar sesión">
+                {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.configurarTexto, hovered && { color: color.lima }]}>Salir</Text>}
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.navigate('/entrar')} accessibilityRole="link" accessibilityLabel="Cambiar de persona">
+                {({ hovered }: { hovered?: boolean; pressed: boolean }) => <Text style={[s.configurarTexto, (hovered || ruta === '/entrar') && { color: color.lima }]}>Cambiar</Text>}
+              </Pressable>
+            )}
           </View>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.contenido}>
@@ -220,7 +263,7 @@ function Marco() {
                 </View>
               ) : null}
             </Pressable>
-            <Pressable onPress={() => router.navigate('/entrar')} accessibilityRole="link" accessibilityLabel={`Eres ${yo.nombre}. Cambiar de persona`}>
+            <Pressable onPress={() => router.navigate(sesion.modo === 'real' ? `/persona/${yo.id}` : '/entrar')} accessibilityRole="link" accessibilityLabel={sesion.modo === 'real' ? 'Ver mi ficha' : `Eres ${yo.nombre}. Cambiar de persona`}>
               <Avatar id={yo.id} tam={30} activo />
             </Pressable>
           </View>

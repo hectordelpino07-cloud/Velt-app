@@ -13,7 +13,8 @@ import { useVelt, useYo } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
 
-const CONSERJERIA = 'carmen';
+// Las averías van a conserjería (o, si no hay nadie, a dirección)
+const conserjeria = () => activos().find((p) => p.rol === 'Conserjería')?.id ?? DIRECTOR.id;
 
 export default function MaterialPantalla() {
   const { gestion } = useYo();
@@ -107,11 +108,11 @@ function FilaMaterial({ m }: { m: Material }) {
         : { bg: color.azulSuave, tx: color.cobalto, t: 'Funciona' };
 
   const averiado = () => {
-    cfg.editarMaterial(m.id, { estado: 'averiado', prestadoA: undefined, nota: m.nota ?? 'Avisado a conserjería' });
+    cfg.marcarAveria(m.id, m.nota ?? 'Avisado a conserjería');
     enviar([
       {
         titulo: `Revisar ${m.nombre.toLowerCase()} (${cfg.nombreEspacio(m.espacio)})`,
-        responsableId: CONSERJERIA,
+        responsableId: conserjeria(),
         dia: 'Hoy',
         hora: null,
         porque: `${gestion ? 'Dirección' : yo.nombre} lo ha marcado como averiado en VELT.`,

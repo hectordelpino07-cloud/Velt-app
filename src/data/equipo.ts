@@ -15,6 +15,7 @@ export type Persona = {
   horas?: number; // horas de clase a la semana, si no son las del centro
   entra?: string; // hora a la que empieza a trabajar («10:15»); sin ella, desde la primera hora
   sale?: string; // hora a la que termina («18:30»); sin ella, hasta la última
+  codigo?: string; // código de invitación para crear su cuenta
   noPuede?: string[]; // además, horas sueltas en las que no trabaja, como 'día:franja' (0 = lunes)
   baja?: boolean; // dada de baja: se conserva para no romper tareas antiguas
   // Palabras con las que el director puede referirse a esta persona sin decir su nombre
@@ -29,12 +30,16 @@ export const TURNOS: { id: Turno; nombre: string }[] = [
   { id: 'ambos', nombre: 'Mañana y tarde' },
 ];
 
-export const CENTRO = 'IES San Marcos';
+// Nombre del centro: el de la demo hasta que se entra con una cuenta real
+export let CENTRO = 'IES San Marcos';
+export const ponerNombreCentro = (n: string) => {
+  CENTRO = n;
+};
 
 export const DIRECTOR: Persona = { id: 'pablo', nombre: 'Pablo', apellido: 'Ríos', rol: 'Dirección', turno: 'ambos' };
 
 export const EQUIPO_INICIAL: Persona[] = [
-  DIRECTOR,
+  { ...DIRECTOR },
   { id: 'ines', nombre: 'Inés', apellido: 'Soto', rol: 'Jefatura', turno: 'manana', materia: 'Geografía e Historia', horas: 9, alias: ['jefatura', 'jefa de estudios'] },
   { id: 'raul', nombre: 'Raúl', apellido: 'Vega', rol: 'Profesorado', turno: 'manana', materia: 'Biología' },
   { id: 'marta', nombre: 'Marta', apellido: 'Gil', rol: 'Profesorado', turno: 'manana', materia: 'Matemáticas' },
@@ -55,7 +60,17 @@ export const EQUIPO_INICIAL: Persona[] = [
 export const EQUIPO: Persona[] = [...EQUIPO_INICIAL];
 export function sincronizarEquipo(lista: Persona[]) {
   EQUIPO.splice(0, EQUIPO.length, ...lista);
+  // DIRECTOR es siempre quien dirige el centro abierto (en la demo, Pablo)
+  const d = lista.find((p) => p.rol === 'Dirección' && !p.baja);
+  if (d && d.id !== DIRECTOR.id) {
+    for (const k of Object.keys(DIRECTOR) as (keyof Persona)[]) delete DIRECTOR[k];
+    Object.assign(DIRECTOR, d);
+  }
 }
+
+// Código de invitación: 6 letras y números sin los que se confunden (0/O, 1/I)
+const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS[Math.floor(Math.random() * LETRAS.length)]).join('');
 
 // Personas en activo (sin las dadas de baja)
 export const activos = () => EQUIPO.filter((p) => !p.baja);

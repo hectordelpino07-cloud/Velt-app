@@ -28,6 +28,10 @@ jobs:
         run: npx expo export -p web --output-dir dist
         env:
           EXPO_BASE_URL: /Velt-app
+          # Clave pública de Supabase: está hecha para ir dentro de la web.
+          # La secreta (service_role / sb_secret) no se pone nunca aquí.
+          EXPO_PUBLIC_SUPABASE_URL: https://zeypznzvgocikgqaoqao.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_l64f9rDerQpzVoY1fZ3AUQ_NF2KAvwD
       # Pages no sabe de rutas de la app: al recargar /Velt-app/centro serviría un 404.
       # Con esta copia, cualquier ruta abre la app.
       - run: cp dist/index.html dist/404.html

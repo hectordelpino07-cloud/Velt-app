@@ -8,7 +8,8 @@ import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, cortado, Mono } from '../components/ui';
 import { Clase, DIAS, esClase, esLugar, Espacio, Franja, Hueco, JORNADAS, TIPOS_ESPACIO, TurnoFranja } from '../data/centro';
-import { activos, CENTRO, daClase, DIRECTOR, EQUIPO, Persona, persona, ROLES, TURNOS } from '../data/equipo';
+import { activos, CENTRO, daClase, DIRECTOR, EQUIPO, nuevoCodigo, Persona, persona, ROLES, TURNOS } from '../data/equipo';
+import { useCuentas } from '../lib/cuentas';
 import { useCentro } from '../lib/centro';
 import { entra, sale, vibra } from '../lib/motion';
 import { useVelt } from '../lib/store';
@@ -56,6 +57,7 @@ export default function Configurar() {
       {pestana === 'personal' && <PersonalLista />}
       {pestana === 'horarios' && <Horarios ancho={ancho} />}
 
+      {!cfg.real && (
       <View style={s.reinicio}>
         <View style={{ flex: 1, minWidth: 220 }}>
           <Text style={s.reinicioTitulo}>Antes de una demo</Text>
@@ -74,6 +76,7 @@ export default function Configurar() {
           Reiniciar la demo
         </Boton>
       </View>
+      )}
     </View>
   );
 }
@@ -280,6 +283,54 @@ function FilaFranja({ f }: { f: Franja }) {
   );
 }
 
+// Código para que cada persona cree su cuenta y entre como ella misma
+function Invitacion({ p }: { p: Persona }) {
+  const cfg = useCentro();
+  const toast = useToast();
+  const { cuentas } = useCuentas();
+  const tiene = cuentas.includes(p.id);
+  // Quien se añadió antes de tener códigos recibe uno nuevo
+  if (!p.codigo) {
+    return (
+      <Pressable onPress={() => cfg.editarPersona(p.id, { codigo: nuevoCodigo() })} accessibilityRole="button" style={s.invitacion}>
+        <Text style={s.invitacionEnlace}>Crear código de invitación</Text>
+      </Pressable>
+    );
+  }
+  const enlace = `${typeof location !== 'undefined' ? location.origin : 'https://hectordelpino07-cloud.github.io'}/Velt-app/acceso?codigo=${p.codigo}`;
+  const mensaje = `Hola ${p.nombre}, te invito a VELT, la app de coordinación del centro. Entra aquí y crea tu cuenta: ${enlace} (tu código es ${p.codigo})`;
+  return (
+    <View style={s.invitacion}>
+      {tiene ? (
+        <Text style={s.invitacionHecha}>✓ Ya tiene cuenta</Text>
+      ) : (
+        <>
+          <Text style={s.invitacionTexto}>Código</Text>
+          <Text style={s.invitacionCodigo} selectable>
+            {p.codigo}
+          </Text>
+          <Pressable
+            onPress={() => {
+              try {
+                navigator.clipboard?.writeText(mensaje);
+                toast(`Invitación copiada. Pégala en un WhatsApp o un correo para ${p.nombre}.`);
+              } catch {
+                toast(`El código de ${p.nombre} es ${p.codigo}.`);
+              }
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={s.invitacionEnlace}>Copiar invitación</Text>
+          </Pressable>
+          <Pressable onPress={() => (typeof window !== 'undefined' ? window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank') : null)} accessibilityRole="link">
+            <Text style={s.invitacionEnlace}>Enviar por WhatsApp</Text>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+}
+
 // ——— Paso 3: personal ———
 
 function PersonalLista() {
@@ -356,6 +407,7 @@ function FilaPersona({ p }: { p: Persona }) {
           </Pressable>
         )}
       </View>
+      {!p.baja && cfg.real && <Invitacion p={p} />}
       {!p.baja && (
         <View style={s.personaAbajo}>
           {director ? (
@@ -552,6 +604,11 @@ function Segmento({ on, texto, onPress }: { on: boolean; texto: string; onPress:
 }
 
 const s = StyleSheet.create({
+  invitacion: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginLeft: 44, marginTop: 8 },
+  invitacionTexto: { fontFamily: font.ui, fontSize: 12, color: color.gris },
+  invitacionCodigo: { fontFamily: font.monoBold, fontSize: 14, letterSpacing: 2, color: color.tinta, backgroundColor: color.lima, paddingHorizontal: 8, paddingVertical: 3 },
+  invitacionEnlace: { fontFamily: font.uiBold, fontSize: 12, color: color.cobalto, textDecorationLine: 'underline' },
+  invitacionHecha: { fontFamily: font.uiBold, fontSize: 12, color: color.cobalto },
   plantillas: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   plantilla: { flexGrow: 1, flexBasis: 220, backgroundColor: color.blanco, borderWidth: 1, borderColor: color.borde, padding: 16 },
   plantillaOn: { backgroundColor: color.tinta, borderColor: color.tinta },

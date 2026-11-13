@@ -1,7 +1,7 @@
 // Estado del centro: jornada (franjas), personal, plantas, espacios, el horario
 // semanal, el plan del curso, material, reservas y las ausencias del día. Se guarda en el navegador como las tareas, así nada se
 // pierde al cambiar de pantalla. Cuando haya servidor, solo cambia este archivo.
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DIAS,
   diaDeHoy,
@@ -27,7 +27,9 @@ import {
   TipoEspacio,
   TurnoFranja,
 } from '../data/centro';
-import { daClase, EQUIPO_INICIAL, Persona, sincronizarEquipo } from '../data/equipo';
+import { daClase, EQUIPO_INICIAL, nuevoCodigo, Persona, ponerNombreCentro, sincronizarEquipo } from '../data/equipo';
+import { useSesion } from './sesion';
+import { supabase } from './supabase';
 import { generar } from './horarios';
 
 type Datos = {
@@ -76,6 +78,24 @@ function inicial(): Datos {
     publicado: null,
     materiales: MATERIALES_INICIALES,
     reservas: RESERVAS_INICIALES,
+    ausentes: [],
+    cubiertas: {},
+  };
+}
+
+// Centro recién creado por dirección: la jornada y unas plantas de partida,
+// y como único personal quien lo crea. Todo se cambia luego en «Configurar centro».
+export function centroNuevo(director: Persona): Datos {
+  return {
+    franjas: FRANJAS_INICIALES,
+    personal: [director],
+    plantas: PLANTAS_INICIALES,
+    espacios: ESPACIOS_INICIALES,
+    semana: { [director.id]: semanaPorDefecto(director, FRANJAS_INICIALES) },
+    plan: { ...PLAN_INICIAL, materias: PLAN_INICIAL.materias.map((m) => ({ ...m, profes: [] })) },
+    publicado: null,
+    materiales: [],
+    reservas: {},
     ausentes: [],
     cubiertas: {},
   };
@@ -156,15 +176,27 @@ type Ctx = Datos & {
   ausente: (personaId: string, si: boolean) => void;
   cubrir: (franja: number, espacioId: string, quien: string) => void;
   reiniciarCentro: () => void;
+  // Avisar de una avería (cualquiera del centro puede)
+  marcarAveria: (id: string, nota: string) => void;
+  real: boolean; // datos del centro de verdad, compartidos
 };
 
 const CentroContext = createContext<Ctx | null>(null);
 
 export function CentroProvider({ children }: { children: ReactNode }) {
+  const { modo, miembro } = useSesion();
+  const real = modo === 'real' && !!miembro && !!supabase;
+  const centroId = real ? miembro!.centroId : null;
+  const gestion = !!miembro?.gestion;
   const [d, setD] = useState<Datos>(cargar);
   const dia = diaDeHoy();
+  // Último estado que sabemos que tiene el servidor (para no reenviar lo que acaba de llegar)
+  const servidor = useRef<string>('');
+  const [cargado, setCargado] = useState<string | null>(null);
 
+  // Demo: se guarda en el navegador
   useEffect(() => {
+    if (centroId) return;
     const t = setTimeout(() => {
       try {
         almacen?.setItem(CLAVE, JSON.stringify(d));
@@ -173,7 +205,65 @@ export function CentroProvider({ children }: { children: ReactNode }) {
       }
     }, 250);
     return () => clearTimeout(t);
-  }, [d]);
+  }, [d, centroId]);
+
+  // Centro real: se carga de Supabase y se escuchan los cambios de los demás en directo
+  useEffect(() => {
+    if (!centroId || !supabase) return;
+    const sb = supabase;
+    let vivo = true;
+    servidor.current = '';
+    const aplicar = (fila: { nombre?: string; estado?: Partial<Datos> } | null) => {
+      if (!fila?.estado) return;
+      if (fila.nombre) ponerNombreCentro(fila.nombre);
+      const texto = JSON.stringify(fila.estado);
+      if (texto === servidor.current) return;
+      servidor.current = texto;
+      setD({ ...centroNuevo(EQUIPO_INICIAL[0]), ...fila.estado } as Datos);
+    };
+    sb.from('centros')
+      .select('nombre, estado')
+      .eq('id', centroId)
+      .single()
+      .then(({ data }) => {
+        if (!vivo) return;
+        aplicar(data);
+        setCargado(centroId);
+      });
+    const canal = sb
+      .channel(`centro-${centroId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'centros', filter: `id=eq.${centroId}` }, (c) => aplicar(c.new as never))
+      .subscribe();
+    return () => {
+      vivo = false;
+      sb.removeChannel(canal);
+    };
+  }, [centroId]);
+
+  // Dirección y jefatura guardan sus cambios en el servidor (medio segundo después del último)
+  useEffect(() => {
+    if (!centroId || !gestion || cargado !== centroId || !supabase) return;
+    const texto = JSON.stringify(d);
+    if (texto === servidor.current) return;
+    const sb = supabase;
+    const t = setTimeout(() => {
+      servidor.current = texto;
+      sb.from('centros').update({ estado: d, actualizado: new Date().toISOString() }).eq('id', centroId).then(({ error }) => {
+        if (error) servidor.current = '';
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [d, centroId, gestion, cargado]);
+
+  // Al salir de una cuenta se vuelve a los datos de la demo
+  const [anterior, setAnterior] = useState(centroId);
+  if (anterior !== centroId) {
+    setAnterior(centroId);
+    if (!centroId) {
+      ponerNombreCentro('IES San Marcos');
+      setD(cargar());
+    }
+  }
 
   // El resto de la app consulta el personal en data/equipo.ts
   sincronizarEquipo(d.personal);
@@ -237,7 +327,7 @@ export function CentroProvider({ children }: { children: ReactNode }) {
 
       addPersona: () =>
         cambiar((x) => {
-          const nueva: Persona = { id: nuevoId('p'), nombre: 'Nuevo', apellido: 'profesor', rol: 'Profesorado', turno: 'manana', materia: '' };
+          const nueva: Persona = { id: nuevoId('p'), nombre: 'Nuevo', apellido: 'profesor', rol: 'Profesorado', turno: 'manana', materia: '', codigo: nuevoCodigo() };
           return { personal: [...x.personal, nueva], semana: { ...x.semana, [nueva.id]: semanaPorDefecto(nueva, x.franjas) } };
         }),
       editarPersona: (id, cambios) =>
@@ -348,7 +438,15 @@ export function CentroProvider({ children }: { children: ReactNode }) {
       editarMaterial: (id, cambios) => cambiar((x) => ({ materiales: x.materiales.map((mt) => (mt.id === id ? { ...mt, ...cambios } : mt)) })),
       quitarMaterial: (id) => cambiar((x) => ({ materiales: x.materiales.filter((mt) => mt.id !== id) })),
 
-      reservar: (franja, espacioId, motivo) => cambiar((x) => ({ reservas: { ...x.reservas, [`${franja}:${espacioId}`]: motivo } })),
+      reservar: (franja, espacioId, motivo) => {
+        cambiar((x) => ({ reservas: { ...x.reservas, [`${franja}:${espacioId}`]: motivo } }));
+        // El profesorado no cambia la configuración: su reserva va por una vía propia
+        if (centroId && !gestion) supabase?.rpc('reservar_espacio', { p_clave: `${franja}:${espacioId}`, p_motivo: motivo });
+      },
+      marcarAveria: (id, nota) => {
+        cambiar((x) => ({ materiales: x.materiales.map((mt) => (mt.id === id ? { ...mt, estado: 'averiado' as const, prestadoA: undefined, nota } : mt)) }));
+        if (centroId && !gestion) supabase?.rpc('marcar_averia', { p_material: id, p_nota: nota });
+      },
       quitarReserva: (franja, espacioId) =>
         cambiar((x) => ({ reservas: Object.fromEntries(Object.entries(x.reservas).filter(([k]) => k !== `${franja}:${espacioId}`)) })),
       ausente: (personaId, si) =>
@@ -363,8 +461,12 @@ export function CentroProvider({ children }: { children: ReactNode }) {
         }),
       cubrir: (franja, espacioId, quien) => cambiar((x) => ({ cubiertas: { ...x.cubiertas, [`${franja}:${espacioId}`]: quien } })),
       reiniciarCentro: () => setD(inicial()),
+      real: !!centroId,
     };
-  }, [d, dia]);
+  }, [d, dia, centroId, gestion]);
+
+  // Mientras llega el centro real, no se enseñan los datos de la demo
+  if (centroId && cargado !== centroId) return null;
 
   return <CentroContext.Provider value={valor}>{children}</CentroContext.Provider>;
 }
