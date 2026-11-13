@@ -134,7 +134,7 @@ const ordenar = (x: Datos): Datos => ({
   mensajes: [...x.mensajes].sort((a, b) => a.creada - b.creada),
 });
 
-// Lo que ha cambiado entre lo que tiene el servidor y lo que hay ahora
+// Lo que ha cambiado entre dos versiones de una lista
 function diferencias<T extends { id: string }>(antes: T[], ahora: T[]) {
   const previo = new Map(antes.map((x) => [x.id, JSON.stringify(x)]));
   const nuevos = ahora.filter((x) => previo.get(x.id) !== JSON.stringify(x));
@@ -176,7 +176,12 @@ export function VeltProvider({ children }: { children: ReactNode }) {
   const [yoDemo, setYo] = useState<string>(() => leer(CLAVE_SESION, DIRECTOR.id));
   // Con cuenta, eres siempre tu propia persona; en la demo se elige
   const yoId = centroId ? miembro!.personaId : yoDemo;
-  const servidor = useRef<Datos>(VACIO);
+  // Sincronización: se compara cada versión de los datos con la anterior y se
+  // envía solo lo que ha cambiado aquí. Lo que llega del servidor se apunta en
+  // `remoto` para no devolverlo, y `existen` dice qué filas ya están creadas.
+  const previo = useRef<Datos>(VACIO);
+  const remoto = useRef(new Map<string, string>());
+  const existen = useRef(new Set<string>());
   const [listo, setListo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -196,7 +201,12 @@ export function VeltProvider({ children }: { children: ReactNode }) {
     if (!centroId || !supabase) return;
     const sb = supabase;
     let vivo = true;
-    servidor.current = VACIO;
+    remoto.current.clear();
+    existen.current.clear();
+    const apuntar = (tabla: Tabla, x: { id: string }) => {
+      remoto.current.set(`${tabla}:${x.id}`, JSON.stringify(x));
+      existen.current.add(`${tabla}:${x.id}`);
+    };
     const filtro = `centro_id=eq.${centroId}`;
     Promise.all([
       sb.from('tareas').select('datos').eq('centro_id', centroId),
@@ -209,18 +219,19 @@ export function VeltProvider({ children }: { children: ReactNode }) {
         avisos: (a.data ?? []).map((f) => f.datos as Aviso),
         mensajes: (m.data ?? []).map((f) => f.datos as Mensaje),
       });
-      servidor.current = datos;
+      for (const tabla of ['tareas', 'avisos', 'mensajes'] as Tabla[]) datos[tabla].forEach((x) => apuntar(tabla, x));
       setD(datos);
       setListo(centroId);
     });
-    // Lo que llega del servidor se apunta como ya sincronizado, para no reenviarlo
     const llega = (tabla: Tabla, fila: { id?: string; datos?: never } | null, borrado: boolean) => {
       if (!fila?.id) return;
-      const quitar = <T extends { id: string }>(xs: T[]) => xs.filter((x) => x.id !== fila.id);
-      const poner = <T extends { id: string }>(xs: T[]) => [...quitar(xs), fila.datos as unknown as T];
-      const cambiar = (x: Datos): Datos => ordenar({ ...x, [tabla]: borrado ? quitar(x[tabla] as never[]) : poner(x[tabla] as never[]) } as Datos);
-      servidor.current = cambiar(servidor.current);
-      setD(cambiar);
+      const id = fila.id;
+      if (borrado) {
+        remoto.current.set(`${tabla}:${id}`, 'borrado');
+        existen.current.delete(`${tabla}:${id}`);
+      } else apuntar(tabla, fila.datos as unknown as { id: string });
+      const quitar = <T extends { id: string }>(xs: T[]) => xs.filter((x) => x.id !== id);
+      setD((x) => ordenar({ ...x, [tabla]: borrado ? quitar(x[tabla] as never[]) : [...quitar(x[tabla] as never[]), fila.datos] } as Datos));
     };
     const canal = sb.channel(`datos-${centroId}`);
     for (const tabla of ['tareas', 'avisos', 'mensajes'] as Tabla[])
@@ -236,22 +247,32 @@ export function VeltProvider({ children }: { children: ReactNode }) {
 
   // Lo que cambia aquí se envía al servidor
   useEffect(() => {
-    if (!centroId || listo !== centroId || !supabase) return;
+    if (!centroId || listo !== centroId || !supabase) {
+      previo.current = d;
+      return;
+    }
     const sb = supabase;
     for (const tabla of ['tareas', 'avisos', 'mensajes'] as Tabla[]) {
-      const { nuevos, borrados } = diferencias<{ id: string }>(servidor.current[tabla], d[tabla]);
+      const { nuevos, borrados } = diferencias<{ id: string }>(previo.current[tabla], d[tabla]);
+      // Lo que acaba de llegar del servidor no se devuelve
+      const propios = nuevos.filter((x) => remoto.current.get(`${tabla}:${x.id}`) !== JSON.stringify(x));
+      const quitados = borrados.filter((id) => remoto.current.get(`${tabla}:${id}`) !== 'borrado');
       // Insertar y actualizar por separado: las reglas de quién puede crear y quién
       // puede cambiar una fila son distintas (el responsable cambia, no crea)
-      const habia = new Set(servidor.current[tabla].map((x) => x.id));
-      const altas = nuevos.filter((x) => !habia.has(x.id));
+      const altas = propios.filter((x) => !existen.current.has(`${tabla}:${x.id}`));
       if (altas.length) sb.from(tabla).insert(altas.map((x) => columnas[tabla](x as never))).then(() => undefined);
-      for (const x of nuevos.filter((y) => habia.has(y.id))) {
+      for (const x of propios.filter((y) => existen.current.has(`${tabla}:${y.id}`))) {
         const { id, ...resto } = columnas[tabla](x as never) as { id: string };
         sb.from(tabla).update(resto).eq('id', id).then(() => undefined);
       }
-      if (borrados.length) sb.from(tabla).delete().in('id', borrados).then(() => undefined);
+      if (quitados.length) sb.from(tabla).delete().in('id', quitados).then(() => undefined);
+      for (const x of propios) {
+        existen.current.add(`${tabla}:${x.id}`);
+        remoto.current.set(`${tabla}:${x.id}`, JSON.stringify(x));
+      }
+      for (const id of quitados) existen.current.delete(`${tabla}:${id}`);
     }
-    servidor.current = d;
+    previo.current = d;
   }, [d, centroId, listo]);
 
   const valor = useMemo<Ctx>(() => {

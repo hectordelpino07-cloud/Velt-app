@@ -82,7 +82,7 @@ export default function Ficha() {
           <Mono style={{ color: ausente ? '#FF8A8A' : color.lima }}>
             {ausente ? 'Ausente hoy' : real ? `Ahora · ${franja!.inicio}–${franja!.fin}` : 'Fuera del horario de clases'}
           </Mono>
-          <Text style={s.ahoraTexto}>{ausente ? 'No está en el centro' : real ? textoHueco(hueco, cfg.nombreEspacio, p) : siguiente ? `Su próxima hora es a las ${siguiente.inicio}` : terminado ? 'Ha terminado por hoy' : 'Hoy no tiene horario'}</Text>
+          <Text style={s.ahoraTexto}>{ausente ? 'No está en el centro' : real ? textoHueco(hueco, cfg.nombreEspacio, p) : siguiente ? `Su próxima hora es a las ${siguiente.inicio}` : terminado ? 'Ha terminado por hoy' : 'Hoy no tiene clases ni guardias'}</Text>
           {siguiente && !ausente ? (
             <Text style={s.ahoraLuego}>
               {real ? 'Después' : 'Le toca'}: {siguiente.inicio} · {textoHueco(cfg.horario[p.id]?.[siguiente.id], cfg.nombreEspacio, p)}

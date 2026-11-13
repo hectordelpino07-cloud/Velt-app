@@ -46,7 +46,7 @@ export default function Equipo() {
               {lista.map((p) => {
                 const ausente = cfg.ausentes.includes(p.id);
                 const { real, hueco, siguiente, terminado } = ahoraYLuego(cfg.horario[p.id], cfg.franjas);
-                const estado = ausente ? 'Ausente hoy' : real ? textoHueco(hueco, cfg.nombreEspacio, p) : siguiente ? `Próxima hora: ${siguiente.inicio}` : terminado ? 'Ha terminado por hoy' : 'Hoy no tiene horario';
+                const estado = ausente ? 'Ausente hoy' : real ? textoHueco(hueco, cfg.nombreEspacio, p) : siguiente ? `Próxima hora: ${siguiente.inicio}` : terminado ? 'Ha terminado por hoy' : 'Hoy no tiene clases ni guardias';
                 const enClase = real && !ausente && esClase(hueco);
                 const guardia = real && !ausente && hueco === 'guardia';
                 return (

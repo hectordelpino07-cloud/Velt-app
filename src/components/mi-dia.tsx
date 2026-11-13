@@ -47,7 +47,7 @@ export function MiDia() {
           <Foto de="aula" />
           <Mono style={{ color: color.lima }}>{real ? `Ahora · ${franja!.inicio}–${franja!.fin}` : 'Fuera del horario de clases'}</Mono>
           <Text style={[s.ahoraTexto, { fontSize: ancho ? 44 : 30, lineHeight: ancho ? 44 : 31 }]}>
-            {real ? textoHueco(hueco, cfg.nombreEspacio, yo) : siguiente ? `${finde ? 'El lunes empiezas' : 'Tu próxima hora es'} a las ${siguiente.inicio}` : terminado ? 'Ya has terminado por hoy' : 'Hoy no tienes horario'}
+            {real ? textoHueco(hueco, cfg.nombreEspacio, yo) : siguiente ? `${finde ? 'El lunes empiezas' : 'Tu próxima hora es'} a las ${siguiente.inicio}` : terminado ? 'Ya has terminado por hoy' : 'Hoy no tienes clases ni guardias'}
           </Text>
           {siguiente ? (
             <Text style={s.luego}>
