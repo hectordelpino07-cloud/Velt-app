@@ -140,7 +140,17 @@ function reajustarHorario(x: Datos, nuevas: Franja[]): Record<string, Semana> {
   );
 }
 
-const numerar = (fs: Franja[]) => fs.map((f, id) => ({ ...f, id }));
+// Ids por posición y nombres al día: «1.ª hora», «2.ª tarde»… y «Recreo».
+// Los nombres que haya escrito dirección a mano no se tocan.
+const AUTOMATICO = /^(\d+\.ª (hora|tarde)|Recreo)$/;
+const numerar = (fs: Franja[]) => {
+  const cuenta = { manana: 0, tarde: 0 };
+  return fs.map((f, id) => {
+    if (!f.recreo) cuenta[f.turno]++;
+    const nombre = !AUTOMATICO.test(f.nombre) ? f.nombre : f.recreo ? 'Recreo' : `${cuenta[f.turno]}.ª ${f.turno === 'manana' ? 'hora' : 'tarde'}`;
+    return { ...f, id, nombre };
+  });
+};
 
 const nuevoId = (p: string) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
@@ -316,28 +326,25 @@ export function CentroProvider({ children }: { children: ReactNode }) {
         cambiar((x) => {
           const j = JORNADAS.find((q) => q.id === id);
           if (!j) return {};
-          return { franjas: j.franjas, semana: reajustarHorario(x, j.franjas), reservas: {}, cubiertas: {} };
+          // Con un solo turno, todo el personal pasa a ese turno (si no, se quedaría sin horas)
+          const unico: Persona['turno'] | null = id === 'manana' ? 'manana' : id === 'tarde' ? 'tarde' : null;
+          const personal = unico ? x.personal.map((p) => (p.turno === unico ? p : { ...p, turno: unico })) : x.personal;
+          return { personal, franjas: j.franjas, semana: reajustarHorario({ ...x, personal }, j.franjas), reservas: {}, cubiertas: {} };
         }),
       addFranja: (turno) =>
         cambiar((x) => {
           const delTurno = x.franjas.filter((f) => f.turno === turno);
           const ultima = delTurno[delTurno.length - 1];
           const inicio = ultima ? ultima.fin : turno === 'manana' ? '08:00' : '15:30';
-          const nueva: Franja = {
-            id: 0,
-            inicio,
-            fin: sumarMinutos(inicio, 60),
-            nombre: `${delTurno.filter((f) => !f.recreo).length + 1}.ª ${turno === 'manana' ? 'hora' : 'tarde'}`,
-            turno,
-          };
+          const nueva: Franja = { id: 0, inicio, fin: sumarMinutos(inicio, 60), nombre: '1.ª hora', turno };
           const pos = ultima ? x.franjas.indexOf(ultima) + 1 : turno === 'manana' ? 0 : x.franjas.length;
           const nuevas = numerar([...x.franjas.slice(0, pos), nueva, ...x.franjas.slice(pos)]);
           return { franjas: nuevas, semana: reajustarHorario(x, nuevas), reservas: {}, cubiertas: {} };
         }),
       editarFranja: (i, cambios) =>
         cambiar((x) => {
-          const nuevas = x.franjas.map((f) => (f.id === i ? { ...f, ...cambios } : f));
           // Cambiar la hora no mueve las clases: el horario se queda igual
+          const nuevas = numerar(x.franjas.map((f) => (f.id === i ? { ...f, ...cambios } : f)));
           return { franjas: nuevas };
         }),
       quitarFranja: (i) =>

@@ -38,6 +38,22 @@ export const JORNADAS: { id: string; nombre: string; detalle: string; franjas: F
 
 export const FRANJAS_INICIALES = JORNADAS[0].franjas;
 
+// «15:30 – 21:00 · 5 horas y recreo», calculado de las horas que hay ahora
+export function resumenTurno(franjas: Franja[], turno: TurnoFranja) {
+  const suyas = franjas.filter((f) => f.turno === turno);
+  if (!suyas.length) return 'Sin horas';
+  const clases = suyas.filter((f) => !f.recreo).length;
+  const recreos = suyas.length - clases;
+  return `${suyas[0].inicio} – ${suyas[suyas.length - 1].fin} · ${clases} ${clases === 1 ? 'hora' : 'horas'}${recreos ? (recreos === 1 ? ' y recreo' : ` y ${recreos} recreos`) : ''}`;
+}
+
+// Qué tipo de jornada tiene el centro ahora: 'manana', 'tarde' o 'partida'
+export function tipoJornada(franjas: Franja[]) {
+  const m = franjas.some((f) => f.turno === 'manana');
+  const t = franjas.some((f) => f.turno === 'tarde');
+  return m && t ? 'partida' : t ? 'tarde' : 'manana';
+}
+
 export type TipoEspacio = 'aula' | 'especial' | 'oficina' | 'exterior';
 
 export const TIPOS_ESPACIO: { id: TipoEspacio; nombre: string }[] = [

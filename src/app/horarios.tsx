@@ -225,7 +225,10 @@ function Crear({ alPublicar }: { alPublicar: () => void }) {
         <Animated.View entering={entra(0)} style={s.bloque}>
           <Text style={s.pregunta}>¿Para qué grupos hay que hacer horario?</Text>
           <Text style={s.ayuda}>
-            VELT hace un horario para cada grupo que tiene aula propia. Ahora mismo son {grupos.length} y cada uno tiene {caben} horas de clase a la semana ({caben / DIAS.length} al día).
+            VELT hace un horario para cada grupo que tiene aula propia. Ahora mismo son {grupos.length}.{' '}
+            {dosTurnos
+              ? `Los de mañana tienen ${horasSemana(franjas, 'manana')} horas de clase a la semana y los de tarde ${horasSemana(franjas, 'tarde')}.`
+              : `Cada uno tiene ${caben} horas de clase a la semana (${caben / DIAS.length} al día).`}
           </Text>
           <View style={[s.chips, { marginTop: 16 }]}>
             {grupos.map((g) => {

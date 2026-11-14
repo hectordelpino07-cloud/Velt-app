@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, TextInputProps, use
 import Animated from 'react-native-reanimated';
 import { TitularRevela } from '../components/motion';
 import { Avatar, Boton, cortado, Mono } from '../components/ui';
-import { Clase, DIAS, esClase, esLugar, Espacio, Franja, Hueco, JORNADAS, TIPOS_ESPACIO, TurnoFranja } from '../data/centro';
+import { Clase, DIAS, esClase, esLugar, Espacio, Franja, Hueco, JORNADAS, resumenTurno, TIPOS_ESPACIO, tipoJornada, TurnoFranja } from '../data/centro';
 import { activos, CENTRO, daClase, DIRECTOR, EQUIPO, nuevoCodigo, Persona, persona, ROLES, TURNOS } from '../data/equipo';
 import { useCuentas } from '../lib/cuentas';
 import { useCentro } from '../lib/centro';
@@ -198,10 +198,19 @@ function Jornada() {
       <Mono style={{ marginBottom: 10 }}>{'// '}Empieza por una plantilla</Mono>
       <View style={s.plantillas}>
         {JORNADAS.map((j) => {
-          const igual = j.franjas.length === cfg.franjas.length && j.franjas.every((f, i) => f.inicio === cfg.franjas[i].inicio && f.turno === cfg.franjas[i].turno);
+          // La plantilla en uso enseña las horas que tiene el centro ahora, no las de la plantilla
+          const igual = j.id === tipoJornada(cfg.franjas);
+          const tocada = igual && !(j.franjas.length === cfg.franjas.length && j.franjas.every((f, i) => f.inicio === cfg.franjas[i].inicio && f.fin === cfg.franjas[i].fin && !!f.recreo === !!cfg.franjas[i].recreo));
+          const detalle = !igual
+            ? j.detalle
+            : j.id === 'partida'
+              ? `Mañana ${resumenTurno(cfg.franjas, 'manana')}
+Tarde ${resumenTurno(cfg.franjas, 'tarde')}`
+              : resumenTurno(cfg.franjas, j.id as TurnoFranja);
           return (
             <Pressable
               key={j.id}
+              disabled={igual && !tocada}
               onPress={() => {
                 cfg.ponerJornada(j.id);
                 vibra();
@@ -211,8 +220,8 @@ function Jornada() {
               style={[s.plantilla, igual && s.plantillaOn, cortado(12)]}
             >
               <Text style={[s.plantillaNombre, igual && { color: color.crema }]}>{j.nombre}</Text>
-              <Text style={[s.plantillaDetalle, igual && { color: color.grisClaro }]}>{j.detalle}</Text>
-              {igual && <Text style={s.plantillaMarca}>✓ En uso</Text>}
+              <Text style={[s.plantillaDetalle, igual && { color: color.grisClaro }]}>{detalle}</Text>
+              {igual && <Text style={s.plantillaMarca}>{tocada ? '✓ En uso, con tus cambios · toca para volver a la plantilla' : '✓ En uso'}</Text>}
             </Pressable>
           );
         })}
@@ -226,8 +235,11 @@ function Jornada() {
           <View key={t.id} style={[s.planta, cortado(18), { marginTop: 16 }]}>
             <View style={s.plantaCabecera}>
               <Text style={[s.plantaNombre, { flex: 0 }]}>{t.nombre}</Text>
-              <Mono>{suyas.length ? `${suyas[0].inicio} – ${suyas[suyas.length - 1].fin}` : 'Sin horas'}</Mono>
+              <Mono>{resumenTurno(cfg.franjas, t.id)}</Mono>
             </View>
+            {suyas.length > 0 && !activos().some((p) => p.turno === 'ambos' || p.turno === t.id) && (
+              <Text style={s.avisoSinPersonal}>Nadie del personal trabaja de {t.nombre.toLowerCase()}. Cámbialo en «03 · Personal» para que estas horas cuenten.</Text>
+            )}
             {suyas.map((f) => (
               <FilaFranja key={f.id} f={f} />
             ))}
@@ -604,6 +616,7 @@ function Segmento({ on, texto, onPress }: { on: boolean; texto: string; onPress:
 }
 
 const s = StyleSheet.create({
+  avisoSinPersonal: { fontFamily: font.uiMedium, fontSize: 13, lineHeight: 19, color: color.tinta, backgroundColor: '#FBE3E3', borderLeftWidth: 3, borderLeftColor: color.rojo, padding: 10, marginTop: 8, marginBottom: 4 },
   invitacion: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginLeft: 44, marginTop: 8 },
   invitacionTexto: { fontFamily: font.ui, fontSize: 12, color: color.gris },
   invitacionCodigo: { fontFamily: font.monoBold, fontSize: 14, letterSpacing: 2, color: color.tinta, backgroundColor: color.lima, paddingHorizontal: 8, paddingVertical: 3 },
