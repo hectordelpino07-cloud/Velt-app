@@ -22,17 +22,19 @@ begin
   return t;
 end $$;
 
--- Para que la respuesta sea un calendario (.ics) y no JSON
+-- Para que la respuesta sea un calendario (.ics) y no JSON, pida lo que pida
+-- el calendario que la consulta (Google manda «Accept: */*»)
 do $$ begin
-  create domain "text/calendar" as text;
+  create domain "*/*" as bytea;
 exception when duplicate_object then null; end $$;
+drop function if exists calendario(uuid);
 
 create or replace function ics_texto(t text) returns text language sql immutable as $$
   select replace(replace(replace(replace(coalesce(t, ''), '\', '\\'), ';', '\;'), ',', '\,'), E'\n', '\n')
 $$;
 
 -- El calendario: se pide con ?token=… y no necesita sesión (el token es la llave)
-create or replace function calendario(token uuid) returns "text/calendar"
+create or replace function calendario(token uuid) returns "*/*"
 language plpgsql stable security definer set search_path = public as $$
 declare
   m record; c record; e jsonb;
@@ -43,9 +45,10 @@ declare
   titulo text; lugar text; ini text; fin text; fecha date; hora text;
   t record;
 begin
+  perform set_config('response.headers', '[{"Content-Type": "text/calendar; charset=utf-8"}]', true);
   select mb.* into m from calendarios ca join miembros mb on mb.usuario_id = ca.usuario_id where ca.token = calendario.token;
   if not found then
-    return E'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//VELT//Escolar//ES\r\nEND:VCALENDAR\r\n';
+    return convert_to(E'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//VELT//Escolar//ES\r\nEND:VCALENDAR\r\n', 'UTF8');
   end if;
   select * into c from centros where id = m.centro_id;
   franjas := c.estado -> 'franjas';
@@ -114,7 +117,7 @@ begin
       || 'END:VEVENT' || E'\r\n';
   end loop;
 
-  return sale || 'END:VCALENDAR' || E'\r\n';
+  return convert_to(sale || 'END:VCALENDAR' || E'\r\n', 'UTF8');
 end $$;
 
 grant execute on function calendario(uuid) to anon, authenticated;

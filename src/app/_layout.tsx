@@ -8,6 +8,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { FadeIn, SlideInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Icono, ICONO_RUTA } from '../components/iconos';
 import { Intro } from '../components/motion';
 import { Avatar, cortado, Logo, Mono } from '../components/ui';
 import { CENTRO, nombreCompleto } from '../data/equipo';
@@ -180,6 +181,7 @@ function Marco() {
                 <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta as never)} accessibilityRole="link" style={s.nav}>
                   {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
                     <>
+                      <Icono nombre={ICONO_RUTA[n.ruta] ?? 'hoy'} tam={18} color={on || hovered ? color.blanco : color.grisClaro} />
                       <Text style={[s.navTexto, (on || hovered) && { color: color.blanco }]}>{n.texto}</Text>
                       {num ? (
                         <View style={[s.insignia, on && { backgroundColor: color.lima }]}>
@@ -273,7 +275,7 @@ function Marco() {
           <Logo tam={26} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             <Pressable onPress={() => router.navigate('/avisos')} accessibilityRole="link" accessibilityLabel={sinLeer ? `Avisos, ${sinLeer} sin leer` : 'Avisos'} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={[s.navTexto, { fontSize: 14 }, ruta === '/avisos' && { color: color.blanco }]}>Avisos</Text>
+              <Icono nombre="avisos" tam={22} color={ruta === '/avisos' ? color.lima : color.crema} />
               {sinLeer ? (
                 <View style={[s.insignia, { marginLeft: 0 }]}>
                   <Text style={s.insigniaTexto}>{sinLeer}</Text>
@@ -296,7 +298,7 @@ function Marco() {
             const num = insignia(n.ruta);
             return (
               <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta as never)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={s.tab}>
-                <View style={[s.tabMarca, on && { backgroundColor: color.lima }]} />
+                <Icono nombre={ICONO_RUTA[n.ruta] ?? 'hoy'} color={on ? color.lima : color.grisClaro} />
                 <Text style={[s.tabTexto, on && { color: color.blanco }]} numberOfLines={1}>
                   {n.corto}
                 </Text>
@@ -309,7 +311,7 @@ function Marco() {
             );
           })}
           <Pressable onPress={() => setMas(true)} accessibilityRole="button" accessibilityLabel="Más secciones" style={s.tab}>
-            <View style={[s.tabMarca, enResto && { backgroundColor: color.lima }]} />
+            <Icono nombre="mas" color={enResto ? color.lima : color.grisClaro} />
             <Text style={[s.tabTexto, enResto && { color: color.blanco }]}>Más</Text>
             {resto.some((n) => insignia(n.ruta)) || sinLeer ? <View style={s.tabPunto} /> : null}
           </Pressable>
@@ -329,7 +331,10 @@ function Marco() {
                 accessibilityRole="link"
                 style={({ pressed }) => [s.hojaFila, pressed && { backgroundColor: '#1A1D27' }]}
               >
-                <Text style={[s.hojaTexto, n.ruta === ruta && { color: color.lima }]}>{n.texto}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <Icono nombre={ICONO_RUTA[n.ruta] ?? 'hoy'} color={n.ruta === ruta ? color.lima : color.grisClaro} />
+                  <Text style={[s.hojaTexto, n.ruta === ruta && { color: color.lima }]}>{n.texto}</Text>
+                </View>
                 {num ? (
                   <View style={[s.insignia, { marginLeft: 0 }]}>
                     <Text style={s.insigniaTexto}>{num}</Text>
@@ -376,8 +381,7 @@ const s = StyleSheet.create({
   tabs: { backgroundColor: color.tinta, borderTopWidth: 1, borderTopColor: '#1E2233' },
   tabsFila: { flexDirection: 'row' },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 10, paddingBottom: 10, minHeight: 52 },
-  tabMarca: { width: 18, height: 3, marginBottom: 7, backgroundColor: 'transparent' },
-  tabTexto: { fontFamily: font.uiMedium, fontSize: 13, color: color.grisClaro },
+  tabTexto: { fontFamily: font.uiMedium, fontSize: 12, color: color.grisClaro, marginTop: 4 },
   tabInsignia: { position: 'absolute', top: 3, left: '60%' as never, minWidth: 18, height: 18, paddingHorizontal: 4, backgroundColor: color.lima, alignItems: 'center', justifyContent: 'center' },
   tabPunto: { position: 'absolute', top: 7, left: '64%' as never, width: 7, height: 7, backgroundColor: color.lima },
   hoja: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: color.tinta, paddingTop: 8, paddingBottom: 12 },
