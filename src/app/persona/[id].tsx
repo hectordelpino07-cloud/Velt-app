@@ -98,7 +98,7 @@ export default function Ficha() {
         </Animated.View>
       </View>
 
-      {mio && daClase(p) && <TuCalendario yo={p} />}
+      {mio && <TuCalendario yo={p} />}
 
       <View style={s.seccion}>
         <View style={s.cab}>

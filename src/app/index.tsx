@@ -3,6 +3,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { TuCalendario } from '../components/calendario';
 import { EnlacePersona } from '../components/horario';
 import { MiDia } from '../components/mi-dia';
 import { TitularRevela } from '../components/motion';
@@ -120,6 +121,8 @@ function Hoy() {
           </Pressable>
         </Animated.View>
       )}
+
+      <TuCalendario yo={yo} />
 
       {/* Dos acciones, en bloques de color sólido */}
       <View style={[s.acciones, !ancho && { flexDirection: 'column' }]}>

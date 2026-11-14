@@ -1,6 +1,8 @@
 // Estado del centro: jornada (franjas), personal, plantas, espacios, el horario
 // semanal, el plan del curso, material, reservas y las ausencias del día. Se guarda en el navegador como las tareas, así nada se
 // pierde al cambiar de pantalla. Cuando haya servidor, solo cambia este archivo.
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { color, font } from './theme';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DIAS,
@@ -193,6 +195,8 @@ export function CentroProvider({ children }: { children: ReactNode }) {
   // Último estado que sabemos que tiene el servidor (para no reenviar lo que acaba de llegar)
   const servidor = useRef<string>('');
   const [cargado, setCargado] = useState<string | null>(null);
+  const [fallo, setFallo] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   // Demo: se guarda en el navegador
   useEffect(() => {
@@ -225,8 +229,13 @@ export function CentroProvider({ children }: { children: ReactNode }) {
       .select('nombre, estado')
       .eq('id', centroId)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!vivo) return;
+        if (error || !data) {
+          setFallo(true);
+          return;
+        }
+        setFallo(false);
         aplicar(data);
         setCargado(centroId);
       });
@@ -238,7 +247,7 @@ export function CentroProvider({ children }: { children: ReactNode }) {
       vivo = false;
       sb.removeChannel(canal);
     };
-  }, [centroId]);
+  }, [centroId, intento]);
 
   // Dirección y jefatura guardan sus cambios en el servidor (medio segundo después del último)
   useEffect(() => {
@@ -466,9 +475,31 @@ export function CentroProvider({ children }: { children: ReactNode }) {
   }, [d, dia, centroId, gestion]);
 
   // Mientras llega el centro real, no se enseñan los datos de la demo
-  if (centroId && cargado !== centroId) return null;
+  if (centroId && cargado !== centroId) return <Cargando error={fallo} reintentar={() => setIntento((n) => n + 1)} />;
 
   return <CentroContext.Provider value={valor}>{children}</CentroContext.Provider>;
+}
+
+// Mientras llega el centro: nunca una pantalla en blanco
+function Cargando({ error, reintentar }: { error: boolean; reintentar: () => void }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: color.tinta, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14 }}>
+      {error ? (
+        <>
+          <Text style={{ fontFamily: font.uiBold, fontSize: 16, color: color.crema, textAlign: 'center' }}>No hemos podido cargar tu centro.</Text>
+          <Text style={{ fontFamily: font.ui, fontSize: 14, color: color.grisClaro, textAlign: 'center', maxWidth: 320 }}>Comprueba la conexión a internet y vuelve a probar.</Text>
+          <Pressable onPress={reintentar} accessibilityRole="button" style={{ backgroundColor: color.lima, paddingVertical: 12, paddingHorizontal: 20 }}>
+            <Text style={{ fontFamily: font.uiBold, fontSize: 15, color: color.tinta }}>Volver a probar</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <ActivityIndicator color={color.lima} />
+          <Text style={{ fontFamily: font.uiMedium, fontSize: 14, color: color.grisClaro }}>Cargando tu centro…</Text>
+        </>
+      )}
+    </View>
+  );
 }
 
 export function useCentro() {

@@ -45,6 +45,23 @@ const SOLO_GESTION = ['/idea', '/seguimiento', '/configurar'];
 const ALTO_NAV = 44;
 const HUECO_NAV = 4;
 
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: color.crema, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14 }}>
+      <Text style={{ fontFamily: font.uiBold, fontSize: 18, color: color.tinta, textAlign: 'center' }}>Algo no ha ido bien en esta pantalla.</Text>
+      <Text style={{ fontFamily: font.ui, fontSize: 13, color: color.gris, textAlign: 'center', maxWidth: 420 }}>{error.message}</Text>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Pressable onPress={retry} accessibilityRole="button" style={{ backgroundColor: color.cobalto, paddingVertical: 12, paddingHorizontal: 18 }}>
+          <Text style={{ fontFamily: font.uiBold, fontSize: 15, color: color.blanco }}>Volver a probar</Text>
+        </Pressable>
+        <Pressable onPress={() => router.replace('/')} accessibilityRole="link" style={{ borderWidth: 2, borderColor: color.tinta, paddingVertical: 10, paddingHorizontal: 18 }}>
+          <Text style={{ fontFamily: font.uiBold, fontSize: 15, color: color.tinta }}>Ir al inicio</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function Raiz() {
   const [listas] = useFonts({
     'ArchivoExpanded-Black': require('../../assets/fonts/ArchivoExpanded-Black.ttf'),
