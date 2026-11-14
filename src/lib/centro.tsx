@@ -103,6 +103,13 @@ export function centroNuevo(director: Persona): Datos {
   };
 }
 
+// JSON con las claves ordenadas: dos objetos iguales dan siempre el mismo texto
+function canonico(x: unknown): string {
+  return JSON.stringify(x, (_k, v) =>
+    v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => [k, v[k]])) : v,
+  );
+}
+
 const CLAVE = 'velt.centro.v3';
 const almacen = typeof localStorage !== 'undefined' ? localStorage : null;
 
@@ -193,7 +200,10 @@ export function CentroProvider({ children }: { children: ReactNode }) {
   const [d, setD] = useState<Datos>(cargar);
   const dia = diaDeHoy();
   // Último estado que sabemos que tiene el servidor (para no reenviar lo que acaba de llegar)
+  // Lo que tiene el servidor y lo último que hemos enviado, en forma canónica
+  // (Postgres reordena las claves del JSON, así que se comparan ordenadas)
   const servidor = useRef<string>('');
+  const enviados = useRef<string[]>([]);
   const [cargado, setCargado] = useState<string | null>(null);
   const [fallo, setFallo] = useState(false);
   const [intento, setIntento] = useState(0);
@@ -217,13 +227,16 @@ export function CentroProvider({ children }: { children: ReactNode }) {
     const sb = supabase;
     let vivo = true;
     servidor.current = '';
+    enviados.current = [];
     const aplicar = (fila: { nombre?: string; estado?: Partial<Datos> } | null) => {
       if (!fila?.estado) return;
       if (fila.nombre) ponerNombreCentro(fila.nombre);
-      const texto = JSON.stringify(fila.estado);
-      if (texto === servidor.current) return;
+      const datos = { ...centroNuevo(EQUIPO_INICIAL[0]), ...fila.estado } as Datos;
+      const texto = canonico(datos);
+      // El eco de un cambio nuestro (aunque llegue tarde) no pisa lo que se ha hecho después
+      if (texto === servidor.current || enviados.current.includes(texto)) return;
       servidor.current = texto;
-      setD({ ...centroNuevo(EQUIPO_INICIAL[0]), ...fila.estado } as Datos);
+      setD(datos);
     };
     sb.from('centros')
       .select('nombre, estado')
@@ -252,11 +265,12 @@ export function CentroProvider({ children }: { children: ReactNode }) {
   // Dirección y jefatura guardan sus cambios en el servidor (medio segundo después del último)
   useEffect(() => {
     if (!centroId || !gestion || cargado !== centroId || !supabase) return;
-    const texto = JSON.stringify(d);
+    const texto = canonico(d);
     if (texto === servidor.current) return;
     const sb = supabase;
     const t = setTimeout(() => {
       servidor.current = texto;
+      enviados.current = [...enviados.current.slice(-9), texto];
       sb.from('centros').update({ estado: d, actualizado: new Date().toISOString() }).eq('id', centroId).then(({ error }) => {
         if (error) servidor.current = '';
       });
