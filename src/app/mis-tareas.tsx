@@ -8,6 +8,7 @@ import { DIRECTOR, persona } from '../data/equipo';
 import { useCentro } from '../lib/centro';
 import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { asoma, entra, recoloca } from '../lib/motion';
+import { enlaceGoogleTarea } from '../lib/calendario';
 import { Tarea, useVelt, useYo } from '../lib/store';
 import { useToast } from '../lib/toast';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
@@ -182,11 +183,20 @@ function TarjetaTarea({ t }: { t: Tarea }) {
               }}
             />
           )}
-          <Pressable onPress={() => setEscribiendo(true)} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
-            {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
-              <Text style={[s.duda, hovered && { color: color.lima }]}>Tengo una duda →</Text>
-            )}
-          </Pressable>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
+            <Pressable onPress={() => setEscribiendo(true)} accessibilityRole="button">
+              {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                <Text style={[s.duda, hovered && { color: color.lima }]}>Tengo una duda →</Text>
+              )}
+            </Pressable>
+            {t.fecha ? (
+              <Pressable onPress={() => (typeof window !== 'undefined' ? window.open(enlaceGoogleTarea(t), '_blank') : null)} accessibilityRole="link">
+                {({ hovered }: { hovered?: boolean; pressed: boolean }) => (
+                  <Text style={[s.duda, hovered && { color: color.lima }]}>Añadir a Google Calendar</Text>
+                )}
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       )}
     </Panel>

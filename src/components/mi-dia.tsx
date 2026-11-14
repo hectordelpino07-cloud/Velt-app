@@ -10,6 +10,7 @@ import { atrasada, claveOrden, diaDeTarea } from '../lib/fechas';
 import { entra, entraLado } from '../lib/motion';
 import { useVelt, useYo } from '../lib/store';
 import { ANCHO_ESCRITORIO, color, font } from '../lib/theme';
+import { TuCalendario } from './calendario';
 import { ahoraYLuego, ProgresoHora, textoHueco, tonoMateria } from './horario';
 import { TitularRevela } from './motion';
 import { Boton, Contador, cortado, Etiqueta, Foto, Mono } from './ui';
@@ -61,6 +62,8 @@ export function MiDia() {
           <Atajo i={1} n={sinLeer} l={sinLeer === 1 ? 'aviso sin leer' : 'avisos sin leer'} bg={sinLeer ? color.lima : color.blanco} ruta="/avisos" />
         </View>
       </View>
+
+      <TuCalendario yo={yo} />
 
       <View style={[s.bajo, !ancho && { flexDirection: 'column' }]}>
         <View style={{ flex: ancho ? 1.2 : undefined }}>

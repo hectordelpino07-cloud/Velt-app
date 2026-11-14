@@ -3,10 +3,10 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-goog
 import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import { Redirect, Slot, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Intro } from '../components/motion';
 import { Avatar, cortado, Logo, Mono } from '../components/ui';
@@ -92,9 +92,20 @@ if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getEle
     ::-webkit-scrollbar-thumb { background: #C9C3B4; border: 3px solid ${color.crema}; }
     ::-webkit-scrollbar-track { background: transparent; }
     input, textarea { font-size: max(16px, 1em); }
+    html, body, #root { height: 100%; height: 100dvh; }
+    html { -webkit-text-size-adjust: 100%; }
+    [role="button"], [role="link"], [role="tab"], button, a { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
   `;
   document.head.appendChild(estilo);
+  // Pantalla completa en el móvil: la app llega a la muesca y la barra del sistema toma el color de la cabecera
+  const vista = document.querySelector('meta[name="viewport"]') ?? document.head.appendChild(document.createElement('meta'));
+  vista.setAttribute('name', 'viewport');
+  vista.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content');
+  const tema = document.createElement('meta');
+  tema.setAttribute('name', 'theme-color');
+  tema.setAttribute('content', color.tinta);
+  document.head.appendChild(tema);
 }
 
 // Antes de enseñar la app: ¿demo o cuenta? ¿ya está dentro de un centro?
@@ -133,6 +144,7 @@ function Marco() {
   const sinLeer = avisos.filter((a) => a.para === yo.id && !a.leido).length;
   const activo = NAV.findIndex((n) => n.ruta === ruta); // -1 en fichas, avisos y configurar
   const configurando = ruta === '/configurar';
+  const [mas, setMas] = useState(false);
 
   // El recuadro azul de la barra lateral se desliza hasta la sección activa
   const y = useSharedValue(Math.max(0, activo) * (ALTO_NAV + HUECO_NAV));
@@ -249,13 +261,18 @@ function Marco() {
     );
   }
 
+  // En el móvil: cabecera fina arriba y las secciones principales abajo, al alcance del pulgar
+  const extra: Seccion[] = gestion ? [{ ruta: '/configurar', texto: 'Configurar centro', corto: 'Ajustes' }] : [];
+  const abajo = NAV.slice(0, 4);
+  const resto = [...NAV.slice(4), ...extra, { ruta: '/avisos', texto: 'Avisos', corto: 'Avisos' }];
+  const enResto = resto.some((n) => n.ruta === ruta);
   return (
     <View style={{ flex: 1, backgroundColor: color.crema }}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: color.tinta }}>
         <View style={s.barra}>
           <Logo tam={26} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <Pressable onPress={() => router.navigate('/avisos')} accessibilityRole="link" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            <Pressable onPress={() => router.navigate('/avisos')} accessibilityRole="link" accessibilityLabel={sinLeer ? `Avisos, ${sinLeer} sin leer` : 'Avisos'} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={[s.navTexto, { fontSize: 14 }, ruta === '/avisos' && { color: color.blanco }]}>Avisos</Text>
               {sinLeer ? (
                 <View style={[s.insignia, { marginLeft: 0 }]}>
@@ -263,39 +280,110 @@ function Marco() {
                 </View>
               ) : null}
             </Pressable>
-            <Pressable onPress={() => router.navigate(sesion.modo === 'real' ? `/persona/${yo.id}` : '/entrar')} accessibilityRole="link" accessibilityLabel={sesion.modo === 'real' ? 'Ver mi ficha' : `Eres ${yo.nombre}. Cambiar de persona`}>
+            <Pressable onPress={() => router.navigate(sesion.modo === 'real' ? `/persona/${yo.id}` : '/entrar')} accessibilityRole="link" hitSlop={8} accessibilityLabel={sesion.modo === 'real' ? 'Ver mi ficha' : `Eres ${yo.nombre}. Cambiar de persona`}>
               <Avatar id={yo.id} tam={30} activo />
             </Pressable>
           </View>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pestanas}>
-          {[...NAV, ...(gestion ? [{ ruta: '/configurar', texto: 'Configurar', corto: 'Ajustes' }] : [])].map((n) => {
+      </SafeAreaView>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.contenido, { padding: 16, paddingBottom: 40 }]} keyboardShouldPersistTaps="handled">
+        {contenido}
+      </ScrollView>
+      <SafeAreaView edges={['bottom']} style={s.tabs}>
+        <View style={s.tabsFila}>
+          {abajo.map((n) => {
             const on = n.ruta === ruta;
             const num = insignia(n.ruta);
             return (
-              <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta as never)} accessibilityRole="link" style={s.pestana}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[s.navTexto, { fontSize: 14 }, on && { color: color.blanco }]}>{n.corto}</Text>
-                  {num ? (
-                    <View style={[s.insignia, { marginLeft: 0 }]}>
-                      <Text style={s.insigniaTexto}>{num}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                {on && <View style={s.subrayado} />}
+              <Pressable key={n.ruta} onPress={() => router.navigate(n.ruta as never)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={s.tab}>
+                <View style={[s.tabMarca, on && { backgroundColor: color.lima }]} />
+                <Text style={[s.tabTexto, on && { color: color.blanco }]} numberOfLines={1}>
+                  {n.corto}
+                </Text>
+                {num ? (
+                  <View style={s.tabInsignia}>
+                    <Text style={s.insigniaTexto}>{num}</Text>
+                  </View>
+                ) : null}
               </Pressable>
             );
           })}
-        </ScrollView>
+          <Pressable onPress={() => setMas(true)} accessibilityRole="button" accessibilityLabel="Más secciones" style={s.tab}>
+            <View style={[s.tabMarca, enResto && { backgroundColor: color.lima }]} />
+            <Text style={[s.tabTexto, enResto && { color: color.blanco }]}>Más</Text>
+            {resto.some((n) => insignia(n.ruta)) || sinLeer ? <View style={s.tabPunto} /> : null}
+          </Pressable>
+        </View>
       </SafeAreaView>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.contenido, { padding: 16, paddingBottom: 96 }]} keyboardShouldPersistTaps="handled">
-        {contenido}
-      </ScrollView>
+      {mas && (
+        <Hoja onCerrar={() => setMas(false)}>
+          {resto.map((n) => {
+            const num = n.ruta === '/avisos' ? sinLeer : insignia(n.ruta);
+            return (
+              <Pressable
+                key={n.ruta}
+                onPress={() => {
+                  setMas(false);
+                  router.navigate(n.ruta as never);
+                }}
+                accessibilityRole="link"
+                style={({ pressed }) => [s.hojaFila, pressed && { backgroundColor: '#1A1D27' }]}
+              >
+                <Text style={[s.hojaTexto, n.ruta === ruta && { color: color.lima }]}>{n.texto}</Text>
+                {num ? (
+                  <View style={[s.insignia, { marginLeft: 0 }]}>
+                    <Text style={s.insigniaTexto}>{num}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+          <Pressable
+            onPress={() => {
+              setMas(false);
+              if (sesion.modo === 'real') sesion.salir();
+              else router.navigate('/entrar');
+            }}
+            accessibilityRole="button"
+            style={({ pressed }) => [s.hojaFila, pressed && { backgroundColor: '#1A1D27' }]}
+          >
+            <Text style={[s.hojaTexto, { color: color.grisClaro }]}>{sesion.modo === 'real' ? 'Cerrar sesión' : 'Cambiar de persona'}</Text>
+          </Pressable>
+        </Hoja>
+      )}
+    </View>
+  );
+}
+
+// Hoja que sube desde abajo con el resto de secciones. Se cierra tocando fuera.
+function Hoja({ children, onCerrar }: { children: ReactNode; onCerrar: () => void }) {
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <Animated.View entering={FadeIn.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,13,20,0.55)' }]}>
+        <Pressable onPress={onCerrar} accessibilityLabel="Cerrar" style={{ flex: 1 }} />
+      </Animated.View>
+      <Animated.View entering={SlideInDown.duration(260).easing(curva)} style={s.hoja}>
+        <SafeAreaView edges={['bottom']}>
+          <View style={s.hojaAsa} />
+          {children}
+        </SafeAreaView>
+      </Animated.View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  tabs: { backgroundColor: color.tinta, borderTopWidth: 1, borderTopColor: '#1E2233' },
+  tabsFila: { flexDirection: 'row' },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 10, paddingBottom: 10, minHeight: 52 },
+  tabMarca: { width: 18, height: 3, marginBottom: 7, backgroundColor: 'transparent' },
+  tabTexto: { fontFamily: font.uiMedium, fontSize: 13, color: color.grisClaro },
+  tabInsignia: { position: 'absolute', top: 3, left: '60%' as never, minWidth: 18, height: 18, paddingHorizontal: 4, backgroundColor: color.lima, alignItems: 'center', justifyContent: 'center' },
+  tabPunto: { position: 'absolute', top: 7, left: '64%' as never, width: 7, height: 7, backgroundColor: color.lima },
+  hoja: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: color.tinta, paddingTop: 8, paddingBottom: 12 },
+  hojaAsa: { alignSelf: 'center', width: 36, height: 4, backgroundColor: '#3A4058', marginBottom: 10 },
+  hojaFila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 22 },
+  hojaTexto: { fontFamily: font.uiBold, fontSize: 17, color: color.crema },
   escritorio: { flex: 1, flexDirection: 'row', backgroundColor: color.crema },
   lateral: { width: 240, backgroundColor: color.tinta, padding: 20, paddingTop: 26 },
   contenido: { padding: 44, maxWidth: 1200, width: '100%' },

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { ahoraYLuego, celdasDeSemana, EnlacePersona, HorarioSemanal, ProgresoHora, textoHueco } from '../../components/horario';
+import { TuCalendario } from '../../components/calendario';
 import { Avatar, Boton, Contador, cortado, Etiqueta, Foto, Mono, Titular } from '../../components/ui';
 import { daClase, nombreCompleto, persona, TURNOS } from '../../data/equipo';
 import { useCentro } from '../../lib/centro';
@@ -96,6 +97,8 @@ export default function Ficha() {
           {(gestion || mio) && <Cifra n={activas.length} l={activas.length === 1 ? 'tarea activa' : 'tareas activas'} />}
         </Animated.View>
       </View>
+
+      {mio && daClase(p) && <TuCalendario yo={p} />}
 
       <View style={s.seccion}>
         <View style={s.cab}>

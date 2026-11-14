@@ -48,14 +48,14 @@ export default function Acceso() {
 
   return (
     <View style={[s.pantalla, !ancho && { flexDirection: 'column' }]}>
-      <View style={[s.lado, !ancho && { minHeight: 220, padding: 24 }]}>
+      <View style={[s.lado, !ancho && { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', padding: 24, paddingTop: 28, gap: 26 }]}>
         <Foto de="pasillo" fuerza={0.22} />
         <Logo tam={ancho ? 40 : 30} />
-        <View style={{ flex: 1 }} />
+        {ancho && <View style={{ flex: 1 }} />}
         <Text style={[s.ladoTitulo, { fontSize: ancho ? 56 : 32, lineHeight: ancho ? 54 : 31 }]}>Tu centro,{'\n'}coordinado.</Text>
         <Text style={s.ladoTexto}>Tareas, horarios, guardias y material del personal en un solo sitio. Sin datos de alumnos.</Text>
       </View>
-      <View style={[s.formulario, !ancho && { padding: 20 }]}>
+      <View style={[s.formulario, !ancho && { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', padding: 20, paddingTop: 28, paddingBottom: 48, justifyContent: 'flex-start' }]}>
         <View style={{ width: '100%', maxWidth: 420 }}>
           {!hayServidor ? (
             <SinServidor />
